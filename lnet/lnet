@@ -166,6 +166,7 @@ function hostname_config()
 
 function gateway_config() {
    GATEWAY_PROMPT="Enter Gateway IP Address"
+   GATEWAY=$(cat /etc/config.d/gateway)
    GATEWAY=`inputbox "$GATEWAY_PROMPT" "$GATEWAY"`
    echo "$GATEWAY" > /etc/config.d/gateway
 }
