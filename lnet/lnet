@@ -74,6 +74,7 @@ main ()
 		      $(echo -en $LIST)              \
                       "A"  "Add a network device"    \
                       "D"  "Setup DNS configuration" \
+		      "N"  "Setup host and domain name" \
 		      "G"  "Setup global Gateway"`
 
     if [ $? != 0 ] ; then
@@ -84,6 +85,7 @@ main ()
       [0-9]*) ethernet_menu ${INTERFACES[$COMMAND]} ;;
       A)      ethernet_config ;;
       D)      dns_config ;;
+      N)      hostname_config ;;
       G)      gateway_config ;;
     esac
   done
@@ -133,6 +135,33 @@ function dns_config() {
             echo   "nameserver  $DNS2"               >>  $RESOLV
 	fi;
     fi;
+}
+
+function hostname_config()
+{
+   if [ -f /etc/hostname ]; then
+     HOSTNAME=$(cat /etc/hostname)
+   fi
+   HOSTNAME=`inputbox "Enter this systems host name" "$HOSTNAME"`
+   if [ -n "$HOSTNAME" ]; then
+     echo "$HOSTNAME" > /etc/hostname
+   else
+     rm /etc/hostname
+   fi
+   if [ -f /etc/domainname ]; then
+     DOMAINNAME=$(cat /etc/domainname)
+   fi
+   DOMAINNAME=`inputbox "Enter this systems domain name" "$DOMAINNAME"`
+   if [ -n "$DOMAINNAME" ]; then
+     echo "$DOMAINNAME" > /etc/domainname
+   else
+     rm /etc/domainname
+   fi
+
+   # and set them too:
+   clear
+   /etc/init.d/hostname
+   sleep 2
 }
 
 function gateway_config() {
