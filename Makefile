@@ -7,18 +7,20 @@
 # i.e. 2004.9 2004.10 2004.11 ...
 VERSION = 2004.5
 
-PROGRAMS = lids/lids luser/luser lnet/lnet lservices/lservices lmodules/lmodules
+PROGRAMS = lids/lids luser/luser lnet/lnet lservices/lservices lmodules/lmodules clad/clad
 SBINDIR = /usr/sbin/
 BINDIR = /usr/bin/
 MANDIR = /usr/share/man/
+PROFILEDDIR = /etc/profile.d/
 MANPAGES = lnet/lnet.8
+PROFILEDFILES = clad/clad.rc
 
 all:
 install:
+	if [ ! -d "${SBINDIR}" ] ; then \
+	    mkdir -p ${SBINDIR} ; \
+	fi ; \
 	for PROGRAM in ${PROGRAMS} ; do \
-	    if [ ! -d "${SBINDIR}" ] ; then \
-	        mkdir -p ${SBINDIR} ; \
-	    fi ; \
 	    install -m755 $${PROGRAM} ${SBINDIR} ; \
 	done ; \
 	for MANPAGE in ${MANPAGES} ; do \
@@ -27,6 +29,12 @@ install:
 	        mkdir -p ${MANDIR}man$$EXT ; \
 	    fi ; \
 	    install -m644 $${MANPAGE} ${MANDIR}man$$EXT/ ; \
+	done ; \
+	if [ ! -d "${PROFILEDDIR}" ] ; then \
+	    mkdir -p ${PROFILEDDIR} ; \
+	fi ; \
+	for RCFILE in ${PROFILEDFILES} ; do \
+	    install -m644 $${RCFILE} ${PROFILEDDIR} ; \
 	done
 
 release:

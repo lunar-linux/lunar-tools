@@ -1,0 +1,305 @@
+#!/bin/bash
+
+##########################################################################
+#                                                                        #
+#  clad - cluster admin tool for lunar                                   #
+#                                                                        #
+#  clad is a cleanroom implementation of colony. not a single line of    #
+#  code was copied in any way. Just so you know                          #
+#                                                                        #
+#  clad is copyright (c) 2004 - Auke Kok                                 #
+#                                                                        #
+#  This code is GPLv2                                                    #
+#                                                                        #
+##########################################################################
+
+
+help()
+{
+    cat << EOF
+clad -- a remote cluster administration tool
+
+Usage:
+    clad [command] [clustername] [command|nodename [nodename ...]]
+
+General options:
+    -d | --debug     Enables debug messages
+    -h | --help      Displays this help text (--help shows more)
+    -v | --verbose   Increases the level of message output
+
+Commands:
+    create      define a new cluster
+    destroy     delete the cluster definition
+    test        test if all nodes are reachable
+    run         run a command on all nodes
+    add         add a node to a cluster
+    remove      remove a node from a cluster
+    login       log in to a cluster
+    logout      log out of a cluster
+
+EOF
+    if [ "$1" != "long" ]; then
+        return
+    fi
+
+    cat << EOF
+Syntax:
+    clad create "name" ["name2" ...]
+        Define a new cluster
+
+    clad destroy "name" ["name2" ...]
+        Destroys the definition of cluster(s)
+
+    clad test "name" ["node1" ...]
+        Test if all or specific nodes in a cluster are reachable
+
+    clad run "name" "command"
+        Run a command on a cluster
+    
+    clad add "name" "node1" ["node2" ...]
+        Add node(s) to a cluster
+
+    clad remove "name" "node1" ["node2" ...]
+        Remove node(s) from a cluster
+
+    clad login|logout "name"
+        Log into or out of cluster "name"
+
+EOF
+}
+
+
+cluster_login()
+{
+    CL_FINGERPRINT=$(ssh-keygen -f $CLAD_CONF_DIR/.$1.id_dsa.pub -l | awk '{print $2}')
+    if ssh-add -l | grep -q " $CL_FINGERPRINT "; then
+        LOGOUT=0
+    else
+        if ! ssh-add $CLAD_CONF_DIR/.$1.id_dsa; then
+            message "Cannot log into cluster \"$1\""
+            exit 1
+        fi
+    fi
+}
+
+cluster_logout()
+{
+    if [ "$LOGOUT" != 0 ]; then
+        if ! ssh-add -d $CLAD_CONF_DIR/.$1.id_dsa; then
+            message "Cannot log out from cluster \"$1\""
+            exit 1
+        fi
+    fi
+}
+
+. /etc/lunar/config
+
+CLAD_CONF_DIR=/var/lib/clad
+
+if [ ! -d $CLAD_CONF_DIR ]; then
+    verbose_msg "Creating clad conf directory"
+    mkdir -p $CLAD_CONF_DIR
+    chmod 700 $CLAD_CONF_DIR
+fi
+
+GETOPT_ARGS=$(getopt -q -n lunar -o "dhv" -l "debug,help,verbose" -- "$@")
+
+if [ -z "$?" ] ; then
+    help short
+    exit 1
+else
+    eval set -- $GETOPT_ARGS
+    root_check
+    enviro_check 
+    set_priority
+
+    # fallback to forking a local keyagent... login/logout won't work
+    if [ -z "$SSH_AUTH_SOCK" ]; then
+        message "No ssh-agent running: starting degraded mode. You will have"
+        message "to log in with every command. To run in full mode you will"
+        message "need to run a ssh-agent."
+        message ""
+        export CLAD_DEGRADED=1
+        ssh-agent $0 "$@"
+        exit
+    fi
+
+    while true ; do
+        case "$1" in
+            -d|--debug)
+                (( LUNAR_DEBUG++ ))
+                export LUNAR_DEBUG
+                shift
+            ;;
+            -h)
+                help short
+                exit 1
+            ;;
+            --help)
+                help long
+                exit 1
+            ;;
+            -v|--verbose)
+                export VERBOSE="on"
+                shift
+            ;;
+            --)
+                shift
+                break
+            ;;
+            *)
+                help short
+                break
+            ;;
+        esac
+    done
+
+    case "$1" in
+        create)
+            if [ ! -e $CLAD_CONF_DIR/$2 ]; then
+                verbose_msg "Creating cluster \"$2\""
+                touch $CLAD_CONF_DIR/$2
+                verbose_msg "Creating ssh keys for cluster \"$2\""
+                ssh-keygen -t dsa -f $CLAD_CONF_DIR/.$2.id_dsa
+            else
+                message "Cluster \"$2\" already exists"
+                exit 1
+            fi
+        ;;
+        destroy)
+            if [ -f $CLAD_CONF_DIR/$2 ]; then
+                verbose_msg "Destroying cluster \"$2\""
+                unset CLAD_PROBLEM
+                for MEMBER in $(cat $CLAD_CONF_DIR/$2); do
+                    if ! $0 remove $2 $MEMBER; then
+                        message "Removing node \"$MEMBER\" FAILED"
+                        CLAD_PROBLEM=1
+                    else
+                        verbose_msg "Removed node \"$MEMBER\" from cluster \"$2\""
+                    fi
+                done
+                if [ -z "$CLAD_PROBLEM" ]; then
+                    rm $CLAD_CONF_DIR/$2
+                    rm $CLAD_CONF_DIR/.$2.id_dsa
+                    rm $CLAD_CONF_DIR/.$2.id_dsa.pub
+                else
+                    message "Could not remove all nodes from cluster \"$2\", cluster not destroyed!"
+                    exit 1
+                fi
+            else
+                message "Cluster \"$2\" does not exist"
+                exit 1
+            fi
+        ;;
+        add)
+            if [ ! -f $CLAD_CONF_DIR/$2 ]; then
+                message "Cluster \"$2\" does not exist"
+                exit 1
+            else
+                CL=$2
+                shift 2
+                cluster_login $CL
+                while [ -n "$1" ]; do
+                    verbose_msg "Adding \"$1\" to cluster \"$CL\""
+                    if ssh -i $CLAD_CONF_DIR/.$CL.id_dsa $USER@$1 "mkdir -p ~/.ssh ; if ! grep \"$(cat $CLAD_CONF_DIR/.$CL.id_dsa.pub | sed 's/\//\\\//g')\" ~/.ssh/authorized_keys; then echo \"$(cat $CLAD_CONF_DIR/.$CL.id_dsa.pub)\" >> ~/.ssh/authorized_keys; fi"; then
+                        if ! grep -q "^$1$" $CLAD_CONF_DIR/$CL; then
+                            echo "$1" >> $CLAD_CONF_DIR/$CL
+                        fi
+                    else
+                        message "Adding \"$1\" to cluster \"$CL\" FAILED"
+                    fi
+                    shift
+                done
+                cluster_logout $CL
+            fi
+        ;;
+        remove)
+            if [ ! -f $CLAD_CONF_DIR/$2 ]; then
+                message "Cluster \"$2\" does not exist"
+                exit 1
+            else
+                CL=$2
+                shift 2
+                cluster_login $CL
+                while [ -n "$1" ]; do
+                    verbose_msg "removing \"$1\" from cluster \"$CL\""
+                    if ssh $USER@$1 "sed -i \"/$(cat $CLAD_CONF_DIR/.$CL.id_dsa.pub | sed 's/\//\\\//g')/d\" .ssh/authorized_keys"; then
+                        verbose_msg "Removal of pubkey from node \"$1\" appeared succesfull"
+                    else
+                        message "Removal of pubkey from node \"$1\" FAILED"
+                    fi
+                    sedit "/^$1$/d" $CLAD_CONF_DIR/$CL
+                    shift
+                done
+                cluster_logout $CL
+            fi
+        ;;
+        list)
+            if [ -z "$2" ]; then
+                ls $CLAD_CONF_DIR
+            else
+                if [ ! -f $CLAD_CONF_DIR/$2 ]; then
+                    message "Cluster \"$2\" does not exist"
+                    exit 1
+                else
+                    cat $CLAD_CONF_DIR/$2
+                fi
+            fi
+        ;;
+        test)
+            CL=$2
+            shift 2
+            $0 run $CL 'echo `uname -n`: OK'
+        ;;
+        run)
+            if [ -z "$2" ]; then
+                message "ERROR: can't run on all clusters yet"
+            else
+                CL=$2
+                shift 2
+                if [ ! -f $CLAD_CONF_DIR/.$CL.id_dsa ]; then
+                    message "No keys exist for cluster \"$CL\", cannot continue"
+                else
+                    cluster_login $CL
+                    for MEMBER in $(cat $CLAD_CONF_DIR/$CL); do
+                        if ssh -q -i $CLAD_CONF_DIR/.$CL.id_dsa $USER@$MEMBER "$@"; then
+                            verbose_msg "member \"$MEMBER\" ran OK"
+                        else
+                            message "$MEMBER: FAILED"
+                        fi
+                    done
+                    cluster_logout $CL
+                fi
+            fi
+        ;;
+        login)
+            if [ -n "$CLAD_DEGRADED" ]; then
+                message "ERROR: can't login when running in degraded mode"
+                exit 1
+            fi
+            if [ -z "$2" ]; then
+                message "ERROR: can't run on all clusters yet"
+            else
+                cluster_login $2
+                verbose_msg "Logged into cluster \"$2\""
+            fi
+        ;;
+        logout)
+            if [ -n "$CLAD_DEGRADED" ]; then
+                message "ERROR: can't logout when running in degraded mode"
+                exit 1
+            fi
+            if [ -z "$2" ]; then
+                message "ERROR: can't run on all clusters yet"
+            else
+                LOGOUT=1
+                cluster_logout $2
+                verbose_msg "Logged out from cluster \"$2\""
+            fi
+        ;;
+        *)
+            help
+        ;; 
+    esac
+fi
+
