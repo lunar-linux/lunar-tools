@@ -10,6 +10,27 @@
 ############################################################
 
 
+service_is_started() {
+  P=$(find $MOONBASE/*/*/init.d/ -type f -name $1 )
+  SECTION=$(echo $P | sed "s:$MOONBASE::g" | cut -d/ -f2)
+  MODULE=$(echo $P | sed "s:$MOONBASE::g" | cut -d/ -f3)
+
+  PIDF=$(grep '^# pidfile: ' /etc/init.d/$1 | cut -d: -f2 | sed 's/ //g' )
+  if [ -z "$PIDF" ] ; then
+    if grep -q '^# processname: ' /etc/init.d/$1 ; then
+      PIDF=/var/run/$(grep '^# processname: ' /etc/init.d/$1 | cut -d: -f2 | sed 's/ //g' ).pid
+    else
+      PIDF=/var/run/$1.pid
+    fi
+  fi
+
+  [ -e "$PIDF" ] && [ -d "/proc/$(cat $PIDF)" ] || pgrep -P 1 "^$1\$" > /dev/null
+}
+
+service_is_enabled() {
+  chkconfig --list | grep -w $1 | grep -qw '[0-9]:on'
+}
+
 service_menu() {(
   #  stop      stop the service (currently started)
   # or
@@ -31,14 +52,14 @@ service_menu() {(
         PIDF=/var/run/$1.pid
       fi
     fi
-    if [ -e "$PIDF" ] && [ -d "/proc/$(cat $PIDF)" ] || pgrep -P 1 "^$1\$" ; then
+    if service_is_started $1 ; then
       TI1="stop"
       OP1="stop the service (currently started)"
     else
       TI1="start"
       OP1="start the service (currently stopped)"
     fi
-    if chkconfig --list | grep -w $1 | grep -qw '[0-9]:on' ; then
+    if service_is_enabled $1 ; then
       TI2="remove"
       OP2="remove the service from the startup sequence (currently added)"
     else
@@ -84,8 +105,19 @@ list_initd_services() {
   unset IFS
   for SERVICE in $(chkconfig --list | grep '0:' | cut -f1 | sort) ; do
     if grep -q '^# chkconfig: ' /etc/init.d/$SERVICE ; then
-      echo " $SERVICE "
-      echo " $(grep '^# description: ' /etc/init.d/$SERVICE | sed -e 's/^# description: //g' -e 's/\\/.../' -e 's/\t/ /g') "
+      DESCRIPTION="$(grep '^# description: ' /etc/init.d/$SERVICE | sed -e 's/^# description: //g' -e 's/\\/.../' -e 's/\t/ /g')"
+      if service_is_enabled $SERVICE ; then
+        FLAG="+"
+      else
+        FLAG="-"
+      fi
+      if service_is_started $SERVICE ; then
+        FLAG="${FLAG}1"
+      else
+        FLAG="${FLAG}0"
+      fi
+      echo "$SERVICE"
+      echo "$FLAG $DESCRIPTION"
     fi
   done
  )
@@ -94,10 +126,12 @@ list_initd_services() {
 
 main_menu() {
  while true ; do
-  action=`$DIALOG --title " Select a Service "    \
+  action=`$DIALOG --title " Service boot configuration "    \
                   --ok-label "Go"                 \
 		  --cancel-label "Exit"           \
-		  --menu "" 0 0 0                 \
+		  --menu                          \
+		  "( Legend: +=enabled, -=disabled, 1=started, 0=stopped)" \
+		  0 0 0                           \
 		  $(list_initd_services)`
   if [ $? != 0 ] ; then
     return
