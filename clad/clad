@@ -257,7 +257,7 @@ else
             else
                 CL=$2
                 shift 2
-                if [ ! -f $CLAD_CONF_DIR/.$CL.id_dsa ]; then
+                if [ ! -f "$CLAD_CONF_DIR/.$CL.id_dsa" ]; then
                     message "No keys exist for cluster \"$CL\", cannot continue"
                 else
                     cluster_login $CL
