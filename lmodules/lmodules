@@ -1,0 +1,337 @@
+#!/bin/bash 
+
+# Kernel dialog loading script
+# Written by Jaime Buffery, aka nestu, January 2004
+# Took ideas from Debian's modconf script
+# (thanks to modconf's author ;)
+# Released under the GPL License.
+
+# Check modules loaded from /etc/modules
+
+function check_modules_loaded_from_file()
+{
+    test ! -e ${MOD_FILE} && touch ${MOD_FILE} && file_loaded_modules="" && return
+
+    while read module; do
+	case $module in
+	    \#*) continue;;
+	    ?*)  file_loaded_modules="${file_loaded_modules} ${module}" ;;
+	esac
+    done < ${MOD_FILE}
+}
+
+# echoes the differences after (un)loading of modules
+# to the term
+function echo_diffs
+{
+    new_mods=$1
+    old_mods=$2
+    action=$3
+    local differences=""
+    
+    if [ "$action" = "+" ]; then
+	# that means new_mods > old_mods
+	bigger=${new_mods}
+	smaller=${old_mods}
+    else 
+        # "$cmd" = "${UNLOAD_CMD}"
+	# that means new_mods < old_mods
+	bigger=${old_mods}
+	smaller=${new_mods}
+    fi
+
+    # The bigger and the smaller are 2 list of modules.
+    # The changes will be in the first positions of the biggest
+    # f.e.: smaller "C D" bigger would be "A B C D",
+    # so all I do is iterate through the biggest until I find
+    # an element of the biggest that is in the smallest (in our
+    # case that would mean iterate until "C"). All the preceeding 
+    # elements of bigger will be the (un)loaded modules, i.e., 
+    # the changes, the "diffs"
+    
+    head=`echo $smaller | cut -d" " -f1`
+    
+    for mod in $bigger
+    do
+	if [ "$mod" != "$head" ]; then
+	    differences="$differences $mod"
+	else
+	    break;
+	fi	
+    done
+    
+    echo
+    
+    if [ "$action" = "+" ]; then 
+	echo -e "\tSuccesfully loaded:"
+    else
+	echo -e "\tSuccesfully unloaded:"
+    fi	
+
+    echo
+	
+    for mod in $differences
+    do
+	echo -e "\t\t$action $mod"
+    done
+        
+    echo
+    
+    echo -e "\tPress enter to continue..."
+    
+    read 
+}
+
+# updates the variable that holds the list od loaded modules
+function update_loaded_modules_list
+{
+    loaded_modules=`lsmod | cut -d" " -f1 | sed 's/^Module//g'`
+}
+
+function is_loaded_from_file
+{
+    local module=$1
+
+    for mod in ${file_loaded_modules}
+    do
+      test "$mod" = "$module" && return 0
+    done
+
+    return 1
+}
+
+function is_in_changes
+{
+    local module=$1
+
+    for mod in ${changes}
+    do
+      test "$mod" = "$module" && return 0
+    done
+
+    return 1
+}
+
+function update_differences_to_save
+{
+    local module=$1
+    local action=$2
+    local from_file;
+    local in_changes;
+
+    is_loaded_from_file $module && from_file=true  || from_file=false
+    is_in_changes $module       && in_changes=true || in_changes=false
+
+    if [ "$action" = "-" ]; then
+	if ${in_changes} ; then
+	    changes=`echo ${changes} | sed "s/\+${module}//g"`
+	elif ${from_file} ; then
+	    changes="-${module} ${changes}"
+	fi
+    else # here we know that "$action" = "+" 
+	if ${in_changes} ; then
+	    changes=`echo ${changes} | sed "s/\-${module}//g"`
+	elif ! ${from_file} ; then
+	    changes="${changes} +${module}"
+	fi
+    fi
+}
+
+# if the module requested is loaded, it unloads
+# if the module requested is unloaded, it loads
+function load_module()
+{
+    local module=`echo $1 | sed "s/\.$EXT//g"`
+    local loaded=$2
+    local action;
+
+    if [ ${DEPMOD_HAS_RUN} -eq 0 ]; then
+	depmod -a
+	DEPMOD_HAS_RUN=1;
+    fi
+
+    if is_loaded $module ; then
+	MODPROBE=${UNLOAD_CMD}
+	action="-"
+    else
+	MODPROBE=${LOAD_CMD}
+	action="+"
+    fi
+
+    clear  
+
+    if $MODPROBE $module > `tty` ; then
+	loaded_modules_old=$loaded_modules 
+	update_loaded_modules_list
+	update_differences_to_save "$module" "$action"
+	echo_diffs "$loaded_modules" "$loaded_modules_old" "$action"
+    fi
+}
+
+# checks if the requested file is a module to be (un)loaded
+function is_module()
+{
+    local module=$1
+
+    if echo $module | grep ".*\.$EXT$" ; then
+	return 0
+    else
+	return 1
+    fi
+}
+
+# checks if the module is loaded or not
+function is_loaded()
+{
+    local module=`echo $1 | sed "s/\.$EXT//g"`
+
+    for mod in ${loaded_modules}
+    do
+      test "$mod" = "$module" && return 0;
+    done
+
+    return 1;
+}
+
+# saves the differences between startup and exit to /etc/modules.
+# if the modules that are loaded have been loaded in another way
+# they will not be saved to /etc/modules. 
+# if the module was loaded via /etc/modules, and is requested to be
+# unloaded (not loaded at boottime), it will be commented out.
+# if the module hadn't been loaded before, then it will be added to
+# /etc/modules.
+function save_options()
+{
+    for mod in ${changes}
+    do
+      stripped="`echo $mod | sed 's/^.//g'`"
+      echo "stripped $stripped"
+      if [ "`echo $mod | cut -b 1`" = "-" ] ; then
+	  sed -i "s/$stripped/#$stripped/g" ${MOD_FILE}
+      else
+	  echo $stripped >> $MOD_FILE
+      fi
+    done
+}
+
+
+##########################
+#                        #
+#    |\/|  /\  | |\ |    #
+#    |  | /--\ | | \|    #
+#                        #
+##########################
+
+if [ "$UID" != "0" ]; then
+    echo "Error: You need root privileges to run $0" 
+    exit 1
+fi
+
+CHOICE="/tmp/selected.$$"
+DEPMOD_HAS_RUN=0
+UNAME=`uname -r`
+KERNELVER=`echo $UNAME | cut -b 3`
+file_loaded_modules=""
+loaded_modules=""
+loaded_modules_old=""
+changes="";
+LOAD_CMD="modprobe"
+UNLOAD_CMD="modprobe -r"
+MOD_FILE="/etc/modules.test"
+
+
+# 2.4.X Kernels have *.o as module names, 2.6.X *.ko
+if [ "$KERNELVER" = "4" ]; then 
+    EXT="o"
+else
+    EXT="ko"
+fi
+
+ROOT_DIR=/lib/modules/${UNAME}/kernel
+cd ${ROOT_DIR}
+
+# get the list of modules that are loaded from /etc/modules
+# This function sets ${file_loaded_modules}
+check_modules_loaded_from_file
+
+# get the list of modules currently loaded.
+# This function sets ${loaded_modules}
+update_loaded_modules_list
+
+# save the currently loaded module list
+# so on exit we can compare, and see what differences there is
+loaded_modules_old=${loaded_modules}
+
+while [ true ];
+  do
+  files=""
+  for file in `ls -1A $PWD | sed 's/\/$//g'`
+    do
+    if [ -d $file ]; then 
+	files="$files $file d"
+    elif is_module $file ; then
+	
+	if is_loaded $file ; then
+	    files="$files $file +"
+	else
+	    files="$files $file -"
+	fi
+	
+    else
+	files="$files $prefix/$file ."
+    fi
+  done 
+  
+  # is the current dir is a subdir, and an option to go to the parent
+  if [ "$PWD" != "${ROOT_DIR}" ]; then
+      UP=".. up"
+  else
+      UP=""
+  fi	
+  
+  dialog --clear --title " LModules: Lunar module loader " \
+      --menu "d dir\n+ loaded module\n- unloaded module\nChoose one of the following or press <Cancel> to exit" -1 -1 0 $UP "" "" $files 2> $CHOICE
+  
+  retval=$?
+  case $retval in
+      
+      0 )
+	  retval=`cat $CHOICE`
+	  
+          if [ "$retval" = "" ]; then
+	      continue;
+          elif is_module $retval ; then
+	      load_module $retval  
+          elif [ -d $retval ]; then
+	      cd $retval 
+          fi
+	  # if it is not a module nor a dir, we are not interested, so we don't play with it ;)
+	  ;;
+      
+      1 )
+	  rm $CHOICE
+          # when you wc -w, the word count is tabbed or st alike, so I have to sed the trailing white spaces
+	  test "`echo $changes | wc -w | sed 's/^[ ]*//g'`" = "0" && echo "no changes made" && exit 0;
+
+	  dialog --title " LModules: Lunar module loader " \
+	      --yesno "\n Exit and save changes? \n \n" 0 0   
+	  
+	  retval=$?
+	  case $retval in
+	      0) save_options 
+		  exit 0
+		  ;;
+	      * ) exit 0
+		  ;;
+	  esac
+	  ;;
+      
+      * ) exit  
+	  ;;
+      
+  esac
+
+done
+
+# Dunno why this is here, but the WTH! ;)
+exit 0;
