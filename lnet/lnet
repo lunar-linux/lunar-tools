@@ -46,41 +46,47 @@ goodbye() {
   exit  0
 }
 
-main() {
 
-export  PATH="/bin:/usr/bin:/sbin:/usr/sbin:/usr/local/bin"
+main ()
+{
+    unset PROMPT COUNTER
+    COUNTER=1
+    for DEVICE in `ls -1 $CONFIG_DIR`; do
+        if [ -L $CONFIG_DIR/$DEVICE ]; then
+	    continue
+	fi
+	INTERFACES[$COUNTER]=$DEVICE
+	if [ -z "$LIST" ]; then
+	  LIST="$COUNTER\nEdit device $DEVICE\n"
+	else
+	  LIST="$LIST$COUNTER\nEdit device $DEVICE\n"
+	fi
+	(( COUNTER++ ))
+    done
 
-while true; do
-         unset PROMPT COUNTER
-	 COUNTER=1
-         CONFIGDIR="/etc/config.d/network"
-
-	 for DEVICE in `ls -1 $CONFIGDIR`; do
-	     if [ -L $CONFIGDIR/$DEVICE ]; then continue; fi;
-	     INTERFACES[$COUNTER]=$DEVICE
-	     echo $DEVICE
-	     PROMPT="$PROMPT $COUNTER $DEVICE"
-	     let COUNTER=$COUNTER+1
-	 done;
-    COMMAND=`$DIALOG  --title "Networking Device"    \
-                      --nocancel                     \
+  while true; do
+    COMMAND=`$DIALOG  --title "Network configuration" \
+                      --ok-label "Select"            \
+		      --cancel-label "Exit"          \
                       --menu                         \
-		      "Select a device to edit"      \
+		      ""                             \
                       0 0 0                          \
-		      $PROMPT                        \
-                      'A'  'Add'                     \
-                      'D'  'DNS'                     \
-		      'G'  'Gateway'                 \
-		      'E'  'Exit'             `
+		      $(echo -en $LIST)              \
+                      "A"  "Add a network device"    \
+                      "D"  "Setup DNS configuration" \
+		      "G"  "Setup global Gateway"`
 
-    case  $COMMAND  in
-      [0-9])  ethernet_menu ${INTERFACES[$COMMAND]} ;;
+    if [ $? != 0 ] ; then
+      return
+    fi
+
+    case $COMMAND in
+      [0-9]*) ethernet_menu ${INTERFACES[$COMMAND]} ;;
       A)      ethernet_config ;;
       D)      dns_config ;;
       G)      gateway_config ;;
-      E)      return    ;;
     esac
- done
+  done
 }
 
 function dns_config() {
@@ -130,25 +136,25 @@ function dns_config() {
 }
 
 function gateway_config() {
-      GATEWAY_PROMPT="Enter Gateway IP Address"
-
-      GATEWAY=`inputbox  "$GATEWAY_PROMPT"       "$GATEWAY"`
-
-cat > /etc/config.d/gateway << EOF
-$GATEWAY
-EOF
+   GATEWAY_PROMPT="Enter Gateway IP Address"
+   GATEWAY=`inputbox "$GATEWAY_PROMPT" "$GATEWAY"`
+   echo "$GATEWAY" > /etc/config.d/gateway
 }
 
 function ethernet_menu() {
-
-    COMMAND=`$DIALOG  --title "Networking Device"    \
-                      --nocancel                     \
+    PROMPT="Select an action for interface $1"
+    COMMAND=`$DIALOG  --title "Modify device $1"     \
+                      --ok-label "Select"            \
+		      --cancel-label "Exit"          \
                       --menu                         \
-		      "Select a device to edit"      \
+		      $PROMPT                        \
                       0 0 0                          \
                       'C'  'Configure'               \
-                      'D'  'Delete'                  \
-                      'E'  'Exit' `
+                      'D'  'Delete'`
+
+    if [ $? != 0 ] ; then
+      return
+    fi
 
     case  $COMMAND  in
       C)      ethernet_config $1;;
@@ -320,15 +326,17 @@ EOF
 
 }
 
+. /etc/lunar/config
 
-if [ "$UID" == 0 ]; then
-  DIALOG="dialog --backtitle lnet --stdout"
-  trap catch_sig INT
-  trap ":" QUIT
-  main
-else
-  echo ""
-  echo "User must have root privileges to run this program"
-  echo ""
-fi
+root_check
 
+export IFS="$TAB_ENTER_IFS"
+DIALOG="dialog
+--backtitle
+lnet
+--stdout"
+
+trap catch_sig INT
+trap ":" QUIT
+
+main
