@@ -1,0 +1,121 @@
+#!/bin/bash
+############################################################
+#                                                          #
+# lservices - Lunar services management utility            #
+#                                                          #
+############################################################
+#                                                          #
+# Copyright Auke Kok 2003 under GPLv2                      #
+#                                                          #
+############################################################
+
+
+service_menu() {(
+  #  stop      stop the service (currently started)
+  # or
+  #  start     start the service (currently stopped)
+  #  remove    remove the service from the startup sequence (currently added)
+  # or
+  #  add       add the service to the startup sequence (currently removed)
+
+  while true ; do
+    P=$(find $MOONBASE/*/*/init.d/ -type f -name $1 )
+    SECTION=$(echo $P | sed "s:$MOONBASE::g" | cut -d/ -f2)
+    MODULE=$(echo $P | sed "s:$MOONBASE::g" | cut -d/ -f3)
+
+    PIDF=$(grep '^# pidfile: ' /etc/init.d/$1 | cut -d: -f2 | sed 's/ //g' )
+    if [ -z "$PIDF" ] ; then
+      if grep -q '^# processname: ' /etc/init.d/$1 ; then
+        PIDF=/var/run/$(grep '^# processname: ' /etc/init.d/$1 | cut -d: -f2 | sed 's/ //g' ).pid
+      else
+        PIDF=/var/run/$1.pid
+      fi
+    fi
+    if [ -e "$PIDF" ] && [ -d "/proc/$(cat $PIDF)" ] || pgrep -P 1 "^$1\$" ; then
+      TI1="stop"
+      OP1="stop the service (currently started)"
+    else
+      TI1="start"
+      OP1="start the service (currently stopped)"
+    fi
+    if chkconfig --list | grep -w $1 | grep -qw '[0-9]:on' ; then
+      TI2="remove"
+      OP2="remove the service from the startup sequence (currently added)"
+    else
+      TI2="add"
+      OP2="add the service to the startup sequence (currently removed)"
+    fi
+    action=`$DIALOG --title " Service actions for \"$1\" " \
+                  --ok-label "Go" \
+                  --cancel-label "Exit" \
+                  --menu ""  0 0 0 \
+  	  	  "$TI1" \
+		  "$OP1" \
+                  "$TI2" \
+		  "$OP2"`
+    if [ $? != 0 ] ; then
+      return
+    fi
+  
+    case $action in
+      start  )
+        /etc/init.d/$1 start
+	sleep 3
+      ;;
+      stop   )
+        /etc/init.d/$1 stop
+	sleep 3
+      ;;
+      add    )
+        chkconfig --add $1
+	set_module_config INITDSCRIPTS "$(get_module_config INITDSCRIPT) $1"
+      ;;
+      remove )
+        chkconfig --del $1
+	set_module_config INITDSCRIPTS "$(get_module_config INITDSCRIPTS | sed -e "s/^$1 / /g" -e "s/ $1 / /g" -e "s/^$1\$//g" -e "s/ $1\$/ /g")"
+      ;;
+    esac
+  done
+)}
+
+
+list_initd_services() {
+ (
+  unset IFS
+  for SERVICE in $(chkconfig --list | grep '0:' | cut -f1 | sort) ; do
+    if grep -q '^# chkconfig: ' /etc/init.d/$SERVICE ; then
+      echo " $SERVICE "
+      echo " $(grep '^# description: ' /etc/init.d/$SERVICE | sed -e 's/^# description: //g' -e 's/\\/.../' -e 's/\t/ /g') "
+    fi
+  done
+ )
+}
+
+
+main_menu() {
+ while true ; do
+  action=`$DIALOG --title " Select a Service "    \
+                  --ok-label "Go"                 \
+		  --cancel-label "Exit"           \
+		  --menu "" 0 0 0                 \
+		  $(list_initd_services)`
+  if [ $? != 0 ] ; then
+    return
+  fi
+  service_menu $(echo $action | sed 's/ //g')
+ done
+}
+
+
+
+. /etc/lunar/config
+  
+export IFS="$TAB_ENTER_IFS"
+
+DIALOG="dialog
+--backtitle
+Lunar Services Management Utility
+--stdout"
+
+main_menu
+
