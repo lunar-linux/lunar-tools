@@ -237,7 +237,7 @@ loaded_modules_old=""
 changes="";
 LOAD_CMD="modprobe"
 UNLOAD_CMD="modprobe -r"
-MOD_FILE="/etc/modules.test"
+MOD_FILE="/etc/modules"
 
 
 # 2.4.X Kernels have *.o as module names, 2.6.X *.ko
