@@ -1,0 +1,59 @@
+.TH "lnet" "8" "Release $Revision$" "Chuck Mead" "Lunar networking"
+.SH "NAME"
+.LP 
+lnet \- a menu driven configurator for the networking init script
+.SH "SYNTAX"
+.LP 
+lnet
+.SH "DESCRIPTION"
+.LP 
+lnet is a menu driven configurator for the networking init script under Lunar Linux.
+.SH "OPERATION"
+.LP 
+lnet must be run as the root user because it must write to files which may only be edited by someone with root permissions.  To start the program type \fBlnet\fR as root.
+.br 
+
+\fIConfiguring a pre\-existing interface:\fR
+.LP 
+Once you have started the program you will be presented with a simple dialog.  If you already have a network interface configured you will see it at the top of the list (eg. eth0).  To edit the config for this interface press the enter key and you will be asked if you would like to configure, delete, or exit this part of lnet.  Choose configure and you are asked to enter the name of your networking module (this is the kernel module [driver] for your network interface card [NIC]).  If you have a monolithic kernel then you may omit making an entry here.  Press enter and the interface moves to a screen where you may enter any additional parameters required for the operation of your network card.  If there are none you may leave this blank and press enter.  The next screen asks you if this is a wireless device.  If it is not a wireless device press enter to move to the next screen.  At the next screen you are asked if you will require DHCP.  If you require DHCP you will be presented with a choice of client software to handle the DHCP transactions.  Choose dhclient in most cases (you will need to install the dhcp module to support this choice [\fBlin dhcp\fR]).  Once you've chosen the client software you want to use press enter and you will be presented with a screen which asks what options you need to pass to your DHCP client.  In most cases you may simply press enter choosing none.  The next screen will ask you if you want the interface activated at boot time.  Choose yes unless your NIC is a PCMCIA card.  Press enter again and you will be returned to the initial screen.  If you wish to configure a static ip address select no when asked about DHCP and press enter.  In the next screen you are asked to enter an IP address.  Enter the address and press enter.  In the next screen you are asked to enter a subnet mask.  Enter the mask and press enter.  In the next screen you are asked to enter a broadcast address.  Enter the correct broadcast address and press enter.  In the next screen you are asked to enter your gateway ip address.  Enter the address and press enter.  In the next screen you are asked to enter any extras options you wish to pass to the ifconfig command.  Enter the options (if any) and press enter.  In the next screen you are asked if this interface should be activated on boot and advised to say no if it is a PCMCIA device.  Select yes and press enter.  You are now returned to the initial screen.
+
+\fIConfiguring a new interface:\fR
+.LP 
+Configuring a new interface is much like configuring an existing one (see the previous paragraph).
+
+\fIConfiguring a Wireless Card:\fR
+.LP 
+Open up lnet and the first screen you see is to either select a device that you have already created or to add a new device.  Click on Add and hit enter.  You want to name your device next eg. wlan0 and then hit enter.  Now you come to the screen that asks you to optinally enter the kernel module that will be used for the wireless device.  For example if your card uses the orinoco_cs.o module you would type orinoco_cs in the box and hit enter.  Next if you have any optional parameters that you put in you can do so here.  Now you see a screen that will ask you is this a wireless device to not, you want to say yes to this and hit enter.  Next you get to enter your wireless encryption key if your network requires one.  There are 2 ways that your key can be entered. If you have a ASCII key you need to use the prefix "s:" before your key (s:passphrase).  If you have a regular key then just type it in as it should be,(ex. 1234\-567\-89). If your network doesnt use a encryped key then just leave it blank and hit enter.  The next screen asks what mode do you use for your network.  Is it Managed or Ad\-Hoc.  If you do not know what your network is then probobly it is Managed, but make sure you ask your systems administrator what it is. Once you know if it is Managed or Ad\-Hoc then choose which one it is and hit enter.  Next you need to put in the speed you wish to run through your wireless card.  If you know you have to run slower than your card allows then put it here otherwise just hit enter and it will automaticly find the speed.  Now you see that you must enter you ESSID or your AP's site name.  If you do not know this please ask your systems administrator for this answer, otheriwse if your network doesnt have a ESSID or a site ID just hit enter to go onto the next screen.  
+.LP 
+Now we are back to regular questions, now you see the DHCP screen.  If you use DHCP say yes here if not say no and hit enter.  Now if you pressed no then now you will be required to enter your IP addess eg. 192.168.1.120.  Once you have done this hit enter to move onto the next screen.  Now enter your netmask if it is diffrent than the one that is given to you.  Your subnet can vary on the class of network you have and your ip address.  For example a class c subnet would be 255.255.255.0, class b subnet 255.255.0.0 and class a subnet 255.0.0.0.  Now you want to enter your broadcat IP if it is not already there for you.  It should be in the box there for you automaticly.  If you entered your IP as 192.168.1.120 then the broadcast IP should read 192.168.1.255.  If nothing is there please put the broadcast IP in the box.  Depending on your IP address the boradcast IP should look the same except for the last 3 numbers, they should be .255.  See the example above if you dont understand.  Now its time to enter the gateway address, this should be the address of your router/gateway a good example is 192.168.1.1 .  If you do not have gateway then make sure the box is empty.  If you have any extra options you would like to pass to ifconfig, usually you shouldnt have any, then do it on this box.  If you dont have anything just leave it blank and hit enter.  Next you want to set it to be activated on boot you should say yes here unless you have a PCMCIA wireless card.  If you have a PCMCIA wireless card it will come on automaticly when you boot anyway.  Hit enter and your done seeting up your wireless card with lnet.
+
+\fIConfiguring DNS:\fR
+.LP 
+Select DNS and press enter.  You will be asked to enter the name of your primary local domain name.  Press enter and then you will be asked to enter the ip address of your Primary DNS server. Press enter and then you will be asked to enter the ip address of your secondary DNS server.  Press enter and you will be returned to the initial screen.
+
+
+\fIExiting the program:\fR
+.LP 
+Select exit and press enter.
+
+.SH "FILES"
+.LP 
+\fI/etc/config.d/network/ethN (where N is 0,1,2 etc.)\fP 
+.br 
+\fI/etc/resolv.conf\fP 
+.br 
+\fI/etc/init.d/network\fP
+.SH "ENVIRONMENT VARIABLES"
+.LP 
+None.
+.SH "EXAMPLES"
+.LP 
+None.
+.SH "AUTHORS"
+.LP 
+Chuck Mead <csm@mmoongroup.com>
+.LP 
+Nick Hudson <nhudson@lunar\-linux.org>
+.SH "SEE ALSO"
+.LP 
+ifconfig(8), resolv.conf(5)
