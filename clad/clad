@@ -201,7 +201,7 @@ else
                 cluster_login $CL
                 while [ -n "$1" ]; do
                     verbose_msg "Adding \"$1\" to cluster \"$CL\""
-                    if ssh -i $CLAD_CONF_DIR/.$CL.id_dsa $USER@$1 "mkdir -p ~/.ssh ; if ! grep \"$(cat $CLAD_CONF_DIR/.$CL.id_dsa.pub | sed 's/\//\\\//g')\" ~/.ssh/authorized_keys; then echo \"$(cat $CLAD_CONF_DIR/.$CL.id_dsa.pub)\" >> ~/.ssh/authorized_keys; fi"; then
+                    if ssh -i $CLAD_CONF_DIR/.$CL.id_dsa $USER@$1 "mkdir -p ~/.ssh ; if ! grep -q \"$(cat $CLAD_CONF_DIR/.$CL.id_dsa.pub | sed 's/\//\\\//g')\" ~/.ssh/authorized_keys; then echo \"$(cat $CLAD_CONF_DIR/.$CL.id_dsa.pub)\" >> ~/.ssh/authorized_keys; fi"; then
                         if ! grep -q "^$1$" $CLAD_CONF_DIR/$CL; then
                             echo "$1" >> $CLAD_CONF_DIR/$CL
                         fi

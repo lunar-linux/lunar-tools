@@ -4,19 +4,19 @@ shopt -s extglob
 
 _clad () 
 {
-	local cur prev
-	COMPREPLY=()
-	cur=${COMP_WORDS[COMP_CWORD]}
-	prev=${COMP_WORDS[COMP_CWORD-1]}
+    local cur prev
+    COMPREPLY=()
+    cur=${COMP_WORDS[COMP_CWORD]}
+    prev=${COMP_WORDS[COMP_CWORD-1]}
 
-	if [ $COMP_CWORD -eq 1 ] || [ "${prev:0:1}" = "-" ]; then
-		COMPREPLY=( $( compgen -W 'create destroy add remove test run list login logout' $cur ))
-	elif [ $COMP_CWORD -eq 2 ]; then
+    if [ $COMP_CWORD -eq 1 ] || [ "${prev:0:1}" = "-" ]; then
+       	COMPREPLY=( $( compgen -W 'create destroy add remove test run list login logout' $cur ))
+    elif [ $COMP_CWORD -eq 2 ]; then
         COMPREPLY=( $( compgen -W "`ls /var/lib/clad`" ))
     else
-        COMPRETLY=( $( compgen -W "`cat /var/lib/clad/$prev`" ))
-	fi
-	return 0
+        COMPREPLY=( $( compgen -W "`cat /var/lib/clad/$prev`" ))
+    fi
+    return 0
 }
 complete -F _clad clad
 
