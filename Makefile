@@ -7,7 +7,7 @@
 # i.e. 2004.9 2004.10 2004.11 ...
 VERSION = 2004.1
 
-PROGRAMS = lids/lids luser/luser lnet/lnet
+PROGRAMS = lids/lids luser/luser lnet/lnet lservices/lservices
 SBINDIR = /usr/sbin/
 BINDIR = /usr/bin/
 MANDIR = /usr/share/man/
