@@ -32,7 +32,7 @@ Commands:
     destroy     delete the cluster definition
     test        test if all nodes are reachable
     run         run a command on all nodes
-    brun        same as run but perform tasks simultaneously
+    bgrun       same as run but perform tasks simultaneously
     add         add a node to a cluster
     remove      remove a node from a cluster
     login       log in to a cluster
