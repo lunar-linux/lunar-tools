@@ -1,0 +1,773 @@
+#!/bin/bash
+############################################################
+#                                                          #
+# luser - Lunar user management utility                    #
+#                                                          #
+############################################################
+#                                                          #
+# Copyright Auke Kok 2003 under GPLv2                      #
+#                                                          #
+############################################################
+
+
+exec_command() {
+  result=`$DIALOG --title " About to execute command "   \
+                  --yesno "Do you want to execute the following command?\n\"$@\""\
+                  8 50`
+  if [ "$?" == "0" ] ; then
+    TMP_OUTPUT=$(temp_create "command-output")
+    TMP_COMMAND=$(temp_create "command")
+    echo -e "Output of \"$@\" :\n===============\n" > $TMP_OUTPUT
+    echo "$@" > $TMP_COMMAND
+    $SHELL $TMP_COMMAND >> $TMP_OUTPUT 2>&1
+    $DIALOG --title " Results " \
+            --textbox $TMP_OUTPUT 0 0
+    temp_destroy $TMP_OUTPUT
+    temp_destroy $TMP_COMMAND
+  fi
+}
+
+
+list_user_data() {
+  NAME=$(echo $1)
+  USTRING=$(getent passwd $1)
+  UNM=$(echo $USTRING | cut -d: -f1)
+  USD=$(echo $USTRING | cut -d: -f3)
+  GRD=$(echo $USTRING | cut -d: -f4)
+  GPS=$(id -Gn $UNM | sed "s: :,:g")
+  SHADOWSTR=$(getent shadow $UNM | cut -d: -f2)
+  if [ -z "$SHADOWNSTR" ] ; then
+    PSW=""
+  elif [ "$SHADOWSTR" == "x" -o "$SHADOWSTR" == "!" ] ; then
+    PSW=$SHADOWSTR
+  else
+    PSW="****************"
+  fi
+  HME=$(echo $USTRING | cut -d: -f6)
+  SHL=$(echo $USTRING | cut -d: -f7)
+  if [ "$(passwd -S $UNM | cut -d' ' -f2)" == "L" ] ; then
+    LCK="locked"
+  else
+    LCK="unlocked"
+  fi
+  DSC1=$(echo $USTRING,,,, | cut -d: -f5 | awk -F, '{print $1}')
+  DSC2=$(echo $USTRING,,,, | cut -d: -f5 | awk -F, '{print $2}')
+  DSC3=$(echo $USTRING,,,, | cut -d: -f5 | awk -F, '{print $3}')
+  DSC4=$(echo $USTRING,,,, | cut -d: -f5 | awk -F, '{print $4}')
+  DSC5=$(echo $USTRING,,,, | cut -d: -f5 | awk -F, '{print $5}')
+  
+  echo -e "USERNAME\t $UNM \tThe login name of a user"
+  echo -e "UID\t $USD \tThe user ID of a user"
+  echo -e "GID\t $GRD \tThe primary group ID of a user"
+  echo -e "GROUPS\t $GPS \tThe secondary groups a user is part of"
+  echo -e "PASSWORD\t $PSW \tEdit a users password or blank and lock it"
+  echo -e "HOME\t $HME \tHome directory of the user"
+  echo -e "SHELL\t $SHL \tThe given shell of the user"
+  echo -e "LOCK\t $LCK \ttoggle locking status, locked means no login access"
+  echo -e "FULLNAME\t $DSC1 \tFull users name"
+  echo -e "ROOM\t $DSC2 \tUsers room number"
+  echo -e "WORKPHONE\t $DSC3 \tUsers work phone number"
+  echo -e "HOMEPHONE\t $DSC4 \tUsers home phone number"
+  echo -e "OTHER\t $DSC5 \tOther user info"
+}
+
+
+list_shells() {
+  for SHELL in `cat /etc/shells`; do
+    echo "$SHELL"
+    echo "$(basename $SHELL)"
+    if [ "$1" == "$SHELL" ] ; then
+      echo "on"
+    else
+      echo "off"
+    fi
+  done
+}
+
+
+select_shell_menu() {
+  if [ -z "$1" ] ; then
+    EMPTYSTAT="on"
+    CUSTOMSTAT="off"
+  else
+    EMPTYSTAT="off"
+    if ! grep -q "^$1$" /etc/shells ; then
+      CUSTOMSTAT="on"
+      if [ -z "$1" ] ; then
+        CUSTOM="empty"
+      else
+        CUSTOM=$1
+      fi
+    else
+      CUSTOMSTAT="off"
+    fi
+  fi
+  shell=`$DIALOG --title " Select a shell for this user " \
+  		 --ok-label      "Ok"             \
+		 --cancel-label  "Exit"           \
+		 --radiolist  ""                  \
+		 0 60 6                           \
+		 $(list_shells $1)                \
+		 "[none]" "empty"  "$EMPTYSTAT"   \
+		 "[custom]" "$CUSTOM" "$CUSTOMSTAT"`
+  if [ $? == 0 ] ; then
+    if [ "$shell" == "[custom]" ] ; then
+      shell=`$DIALOG --title " Enter the new shell for this user "     \
+               --ok-label      "Add"              \
+	       --cancel-label  "Exit"             \
+	       --inputbox      ""                 \
+	       8 50`
+    elif [ "$shell" == "[none]" ] ; then
+      echo "\"\""
+      return
+    fi
+    if [ -x "$shell" ] ; then
+      echo "$shell"
+      return
+    else
+      $DIALOG --title  "Error setting shell "  \
+              --msgbox "The shell $shell is not valid" \
+              8 50
+      echo "$1"
+      return
+    fi
+  else
+    exit 1
+  fi
+}
+
+
+edit_user_data() {
+ while true ; do
+  prop=`$DIALOG --title " Select a property to edit "   \
+                --ok-label      "Edit"            \
+                --cancel-label  "Exit"            \
+		--item-help                       \
+                --menu                            \
+                ""                                \
+                0 60 0                            \
+                $(list_user_data $1)`
+  if [ $? != 0 ] ; then
+    return
+  fi
+  
+  USTRING=$(getent passwd | awk -F: "\$3==$1" )
+  UNM=$(echo $USTRING | cut -d: -f1)
+  USD=$(echo $USTRING | cut -d: -f3)
+  GRD=$(echo $USTRING | cut -d: -f4)
+  GPS=$(id -Gn $UNM | sed "s: :,:g")
+  if [ "$SHADOWSTR" == "x" -o "$SHADOWSTR" == "!" ] ; then
+    PSW=$SHADOWSTR
+  else
+    PSW="****************"
+  fi
+  DSC=$(echo $USTRING | cut -d: -f5)
+  HME=$(echo $USTRING | cut -d: -f6)
+  SHL=$(echo $USTRING | cut -d: -f7)
+  if [ "$(passwd -S $UNM | cut -d' ' -f2)" == "L" ] ; then
+    LCK="locked"
+  else
+    LCK="unlocked"
+  fi
+  DSC1=$(echo $USTRING,,,, | cut -d: -f5 | awk -F, '{print $1}')
+  DSC2=$(echo $USTRING,,,, | cut -d: -f5 | awk -F, '{print $2}')
+  DSC3=$(echo $USTRING,,,, | cut -d: -f5 | awk -F, '{print $3}')
+  DSC4=$(echo $USTRING,,,, | cut -d: -f5 | awk -F, '{print $4}')
+  DSC5=$(echo $USTRING,,,, | cut -d: -f5 | awk -F, '{print $5}')
+ 
+  case "$prop" in
+  USERNAME) ;;
+  UID) ;;
+  GID) ;;
+  GROUPS)
+    groups=`$DIALOG --title " Select seconday groups for the user " \
+             --separate-output                     \
+	     --checklist "" 0 0 0                  \
+	     $(list_groups_checked $GPS)`
+    if [ $? == 0 ] ; then
+      for GROUP in $groups ; do
+        GROUP=$(echo $GROUP | sed "s: ::g")
+        GROUPNAME=$(getent group $GROUP | cut -d: -f1)
+        if [ -n "$TMP_ALLGROUPS" ] ; then
+          TMP_ALLGROUPS=$TMP_ALLGROUPS,$GROUPNAME
+        else
+          TMP_ALLGROUPS=$GROUPNAME
+        fi
+      done
+      exec_command "usermod -G \"$TMP_ALLGROUPS\" $UNM"
+    fi
+    ;;
+  PASSWORD) 
+    result=`$DIALOG --title " Password options " \
+                --menu "" 0 0 0 \
+	        "Change" "Enter a new password" \
+	        "Empty" "Empty the password hash in the shadow file"`
+    if [ $? == 0 ] ; then
+      if [ "$result" == "Change" ] ; then
+        clear
+	echo "Changing password for \"$UNM\":"
+	echo ""
+        passwd $UNM
+	echo "Press enter to return..."
+        read
+      elif [ "$result" == "Empty" ] ; then
+        NEWSHADOWSTR=$(getent shadow $UNM | awk -F: '{print $1":x:"$3":"$4":"$5":"$6":"$7":"$8":"$9}')
+        exec_command "cp /etc/shadow /etc/shadow- && grep -v \"^$UNM:\" /etc/shadow- > /etc/shadow && echo \"$NEWSHADOWSTR\" >> /etc/shadow"
+      fi
+    fi
+    ;;
+  HOME)
+    NEWHOMEDIR=`$DIALOG --title " Enter the home directory  "     \
+                  --inputbox  "Enter the path to the new home directory for \"$UNM\"." \
+	       8 50`
+    if [ $? == 0 ] ; then
+      if [ -e "$NEWHOMEDIR" ] ; then
+        result=`$DIALOG --title " Directory or file exists " \
+	      --yesno "There already exists a \"$NEWHOMEDIR\". You'll have to move files yourself or remove \"$NEWHOMEDIR\" manually. Do you want to adjust the /etc/passwd home directory setting for user \"$UNM\" to \"$NEWHOMEDIR\" now anyway?"  \
+	      12 50`
+        RETVAR=$?
+        if [ $RETVAR == 0 ] ; then
+          exec_command "usermod -d $NEWHOMEDIR $UNM"
+        fi
+      else
+        # offer to move entire directory
+        result=`$DIALOG --title " Move directory? " \
+	      --yesno "Do you want to move the current homedirectory to the new location?"  \
+	      8 50`
+        RETVAR=$?
+        if [ $RETVAR == 0 ] ; then
+          # plain mv
+          OLDHOMEDIR=$(getent passwd $UNM | cut -d: -f6)
+	  GROUPNAME=$(getent group | grep "^$UNM:" | cut -d: -f3)
+	  exec_command "mv $OLDHOMEDIR $NEWHOMEDIR"
+          exec_comman d"usermod -d $NEWHOMEDIR $UNM"
+        elif [ $RETVAR == 1 ] ; then
+          # only create the dir
+ 	  GROUPNAME=$(getent group | grep "^$UNM:" | cut -d: -f1)
+	  exec_command "mkdir -p $NEWHOMEDIR"
+	  exec_command "chown $UNM:$GROUPNAME $NEWHOMEDIR"
+          exec_command "usermod -d $NEWHOMEDIR $UNM"
+        fi
+      fi
+    fi
+    ;;
+  SHELL)
+    NEWSHELL="$(select_shell_menu $SHL)"
+    if [ $? == 0 ] ; then
+      exec_command "chsh -s $NEWSHELL $UNM"
+    fi
+    ;;
+  LOCK)
+    if [ "$LCK" == "locked" ] ; then
+      exec_command "passwd -u $UNM"
+    else
+      exec_command "passwd -l $UNM"
+    fi
+    ;;
+  FULLNAME)
+    input=`$DIALOG --title " Enter the users full username "     \
+ 	        --inputbox "" 8 50 "$DSC1"`
+    if [ $? == 0 ] ; then
+      exec_command "chfn -f \"$input\" $UNM"
+    fi
+    ;;
+  ROOM)
+    input=`$DIALOG --title " Enter the users room number "     \
+ 	        --inputbox "" 8 50 "$DSC2"`
+    if [ $? == 0 ] ; then
+      exec_command "chfn -r \"$input\" $UNM"
+    fi
+    ;;
+  WORKPHONE)
+    input=`$DIALOG --title " Enter the users work phone "     \
+ 	        --inputbox "" 8 50 "$DSC3"`
+    if [ $? == 0 ] ; then
+      exec_command "chfn -w \"$input\" $UNM"
+    fi
+    ;;
+  HOMEPHONE)
+    input=`$DIALOG --title " Enter the users home phone "     \
+ 	        --inputbox "" 8 50 "$DSC4"`
+    if [ $? == 0 ] ; then
+      exec_command "chfn -h \"$input\" $UNM"
+    fi
+    ;;
+  OTHER)
+    input=`$DIALOG --title " Enter the users other info "     \
+ 	        --inputbox "" 8 50 "$DSC5"`
+    if [ $? == 0 ] ; then
+      exec_command "chfn -o \"$input\" $UNM"
+    fi
+    ;;
+  esac
+ done
+}
+
+
+list_users() {
+  for USTRING in $(getent passwd | sort -k 3 -t ":" -n) ; do
+    UNM=$(echo $USTRING | cut -d: -f1)
+    USD=$(echo $USTRING | cut -d: -f3)
+    GRD=$(echo $USTRING | cut -d: -f4)
+    DSC=$(echo $USTRING | cut -d: -f5)
+    HME=$(echo $USTRING | cut -d: -f6)
+    SHL=$(echo $USTRING | cut -d: -f7)
+    for (( N=${#UNM} ; N<10 ; N++ )) ; do
+      UNM="$UNM "
+    done
+    echo " $USD "
+    echo " $UNM ($DSC) "
+  done
+}
+
+list_users_in_group() {
+  for GSTRING in $(getent group $1) ; do
+    USERS=" $(echo $GSTRING | cut -d: -f4 | sed 's:,: :g') "
+    for USTRING in $(getent passwd | sort -k 3 -t ":" -n) ; do
+      USD=$(echo $USTRING | cut -d: -f3)
+      UNM=$(echo $USTRING | cut -d: -f1)
+      echo " $USD "
+      echo " $UNM "
+      if echo "$USERS" | grep -q $UNM ; then
+        echo "on"
+      else
+        echo "off"
+      fi
+    done
+  done
+}
+
+list_groups() {
+  for GSTRING in $(getent group | sort -t ":" -k 3 -n) ; do
+    GNM=$(echo $GSTRING | cut -d: -f1)
+    GRD=$(echo $GSTRING | cut -d: -f3)
+    echo " $GRD "
+    echo " $GNM "
+  done
+}
+
+
+list_groups_checked() {
+  TMP_LIST=",$@,"
+  for GSTRING in $(getent group | sort -t ":" -k 3 -n) ; do
+    GNM=$(echo $GSTRING | cut -d: -f1)
+    GRD=$(echo $GSTRING | cut -d: -f3)
+    echo " $GRD "
+    echo " $GNM "
+    if echo "$TMP_LIST" | grep -q ",$GNM," ; then
+      echo "on"
+    else
+      echo "off"
+    fi
+  done
+}
+
+
+
+list_groups_long() {
+  for GSTRING in $(getent group | sort -t ":" -k 3 -n) ; do
+    GNM=$(echo $GSTRING | cut -d: -f1)
+    GRD=$(echo $GSTRING | cut -d: -f3)
+    MMB=$(echo $GSTRING | cut -d: -f4)
+    echo " $GRD "
+    echo " $GNM ($MMB) "
+  done
+}
+
+
+
+
+edit_user_menu() {
+ while true ; do
+  user=`$DIALOG --title " Select a user to edit "   \
+                --ok-label      "Edit"            \
+                --cancel-label  "Exit"            \
+                --menu                            \
+                ""                                \
+                0 60 15                           \
+                $(list_users)`
+  if [ $? != 0 ] ; then
+    return
+  fi
+  user=$(echo $user | tr -d " ")
+  if [ -n "$user" ] ; then
+    edit_user_data $(echo $user)
+  fi
+ done
+}
+
+
+del_user_submenu() {
+  USTRING=$(getent passwd | awk -F: "\$3==$1" )
+  UNM=$(echo $USTRING | cut -d: -f1)
+  HME=$(echo $USTRING | cut -d: -f6)
+  choice=`$DIALOG --title " Select how to delete user $UNM " \
+               --ok-label      "Go"                \
+	       --cancel-label  "Exit"              \
+	       --menu                              \
+	       ""                                  \
+	       0 76 4                              \
+	       "Full" "Remove user and all files owned by $UNM"  \
+	       "Home-owned" "Remove user and files in $HME (owned by $UNM)" \
+	       "Home-full" "Remove user and all files in $HME" \
+	       "User" "Remove user name only but leave files owned by $UNM"`
+  case "$choice" in
+    Full)
+      TMP_FILELIST=$(temp_create "filelist")
+      find / -user $UNM | sort > $TMP_FILELIST
+      result=`$DIALOG --title " Files scheduled for deletion " \
+              --textbox "$TMP_FILELIST"              \
+	      20 74                                  \
+	      --and-widget                           \
+	      --yesno "Are you sure you want to delete these files?"  \
+	      8 50`
+      if [ $? == 0 ] ; then
+        for FILE in $(cat $TMP_FILELIST | sort -r) ; do
+	  if [ -d "$FILE" ] ; then
+	    rmdir $FILE
+	  else
+	    rm $FILE
+	  fi
+	done
+	exec_command "userdel $UNM"
+      fi
+      temp_destroy $TMP_FILELIST
+      ;;
+    Home-owned)
+      TMP_FILELIST=$(temp_create "filelist")
+      find $HME -user $UNM | sort > $TMP_FILELIST
+      result=`$DIALOG --title " Files scheduled for deletion " \
+              --textbox "$TMP_FILELIST"              \
+	      20 74                                  \
+	      --and-widget                           \
+	      --yesno "Are you sure you want to delete these files and user $UNM ?"  \
+	      8 50`
+      if [ $? == 0 ] ; then
+        for FILE in $(cat $TMP_FILELIST | sort -r) ; do
+	  if [ -d "$FILE" ] ; then
+	    rmdir $FILE
+	  else
+	    rm $FILE
+	  fi
+	done
+        exec_command "userdel $UNM"
+      fi
+      temp_destroy $TMP_FILELIST
+      ;;
+    Home-full)
+      result=`$DIALOG --title " Deleting user $UNM " \
+             --yesno "Are you sure you want to delete $UNM ?" \
+	     8 50`
+      if [ $? == 0 ] ; then
+        exec_command "userdel -r $UNM"
+      fi
+      ;;
+    User)
+      result=`$DIALOG --title " Deleting user $UNM " \
+             --yesno "Are you sure you want to delete $UNM ?" \
+	     8 50`
+      if [ $? == 0 ] ; then
+        exec_command "userdel $UNM"
+      fi
+      ;;
+  esac
+}
+
+
+del_user_menu() {
+ while true ; do
+  user=`$DIALOG --title " Select a user to delete " \
+                --ok-label      "Del"             \
+                --cancel-label  "Exit"            \
+                --menu                            \
+                ""                                \
+                0 60 15                           \
+                $(list_users)`
+  if [ $? != 0 ] ; then
+    return
+  fi
+  if [ -n "$user" ] ; then
+    del_user_submenu $(echo $user)
+  fi
+ done
+}
+
+
+add_user_menu() {
+  priv=`$DIALOG --title " Normal user ID for user ? " \
+                --menu "Please note that the default shell for normal uid is /bin/bash, and empty for privilidged uids."                                  \
+  	        0 0 0                                      \
+	        "Normal"      "First available (uid/gid >= 100)" \
+	        "Privilidged" "Low uid/gid number (uid/gid < 100)  "`
+  if [ $? != 0 ] ; then
+    return
+  fi
+  user=`$DIALOG --title " Enter the username to add "     \
+                --ok-label      "Add"              \
+ 	        --cancel-label  "Exit"             \
+ 	        --inputbox      ""                 \
+	       8 50`
+  if [ $? != 0 ] ; then
+    return
+  fi
+  if [ -n "$user" ] ; then
+    if getent passwd $user > /dev/null ; then
+      $DIALOG --title " Error adding user "  \
+              --msgbox "User $user already exists" \
+	      8 50
+    else
+      group=`$DIALOG --title " Enter the primary group name for $user " \
+	     --menu      "" 0 0 0                  \
+	     " [new] "                             \
+	     "Add a new group"                     \
+	     $(list_groups)`
+      if [ $? != 0 ] ; then
+        return
+      fi
+      if [ "$group" == " [new] " ] ; then
+        group=`$DIALOG --title " Enter the groupname to add "     \
+                --ok-label      "Add"              \
+ 	        --cancel-label  "Exit"             \
+ 	        --inputbox      ""            \
+	       8 50 "$user"`
+	 if [ $? != 0 ] ; then
+	   return
+	 fi
+	if getent group $group > /dev/null ; then
+           $DIALOG --title " Warning "  \
+	            --msgbox "Group $group already exists. The user will be added to group \"$group\"!" \
+		8 50
+	fi
+      fi
+      if [ -n "$group" ] ; then
+	create=`$DIALOG --title " Home directory " \
+	                --menu ""                  \
+			0 0 0                      \
+			"C" "Create \"/home/$user\" and copy skeleton files" \
+			"O" "Only create \"/home/$user\""         \
+			"S" "Specify or create a special homedirectory..."`
+	if [ $? != 0 ] ; then
+	  return
+	fi
+	if [ "$create" = "C" ] ; then
+	  TMP_CREATE="-d /home/$user -m -k /etc/skel -g $group"
+	elif [ "$create" = "O" ] ; then
+	  TMP_CREATE="-d /home/$user -m -g $group"
+	elif [ "$create" = "S" ] ; then
+          homedir=`$DIALOG --title " Enter the home directory  "     \
+             --inputbox  "Enter the path to the home directory for \"$user\". You will have to create it and set permissions yourself." \
+	       8 50`
+	  if [ $? != 0 ] ; then
+	    return
+	  fi
+	  TMP_CREATE="-d $homedir"	  
+        fi
+        if [ "$priv" == "Privilidged" ] ; then
+          # allocate a gid
+	  for (( N=0  ; N<100 ; N++ )) ; do
+	    if [ -z "$(cat /etc/group | cut -d: -f3 | grep "^$N$" )" ]; then
+	      break
+	    fi
+	  done
+	  if [ "$N" == "100" ]; then
+            $DIALOG --title " Error adding user "  \
+	            --msgbox "Unable to allocate a low GID for $group!" \
+		8 50
+	    return 1
+	  else
+	    TMP_GROUPID="-g $N"
+	  fi
+	  # allocate a uid
+	  for (( N=0  ; N<100  ; N++ )) ; do
+	    if [ -z "$(getent passwd | cut -d: -f3 | grep "^$N$" )" ]; then
+	      break
+	    fi
+	  done
+	  if [ "$N" == "100" ]; then
+            $DIALOG --title " Error adding user "  \
+	            --msgbox "Unable to allocate a low UID for $user!" \
+		8 50
+	    return 1
+	  else
+	    TMP_USERID="-u $N"
+	  fi
+	else
+	  if getent group $group > /dev/null ; then
+	    TMP_GROUPID="-g $group"
+	  else
+	    TMP_GROUPID=""
+	  fi
+	  TMP_USERID="-s /bin/bash"
+	fi
+	# this is where we actually perform the task:
+	if ! getent group $group > /dev/null ; then
+          exec_command "groupadd $group $TMP_GROUPID"
+	fi
+	exec_command "useradd $user $TMP_USERID $TMP_GROUPID $TMP_CREATE"
+        edit_user_data $(getent passwd $user | cut -d: -f3)
+      else
+        $DIALOG --title " Error adding user "  \
+	        --msgbox "Group name must not be empty!" \
+		8 50
+      fi      
+    fi
+  else
+    $DIALOG --title " Error adding user "  \
+            --msgbox "Username ID must not be empty!" \
+            8 50
+  fi
+}
+
+
+add_group_menu() {
+  priv=`$DIALOG --title " Normal group ID for group ? " \
+                --menu ""                               \
+  	        0 0 0                                   \
+	        "Normal"      "First available (gid >= 100) " \
+	        "Privilidged" "Low gid number (gid < 100) "`
+  if [ $? != 0 ] ; then
+    return
+  fi
+  group=`$DIALOG --title " Enter the groupname to add "     \
+                --ok-label      "Add"              \
+ 	        --cancel-label  "Exit"             \
+ 	        --inputbox      ""                 \
+	       8 50`
+  if [ $? != 0 ] ; then
+    return
+  fi
+  if [ -n "$group" ] ; then
+    if getent group $group > /dev/null ; then
+      $DIALOG --title " Error adding group "  \
+              --msgbox "Group $group already exists" \
+	      8 50
+    else
+      if [ "$priv" == "Privilidged" ] ; then
+        # allocate a gid
+        for (( N=0  ; N<100 ; N++ )) ; do
+          if [ -z "$(cat /etc/group | cut -d: -f3 | grep "^$N$" )" ]; then
+	    break
+	  fi
+	done
+	if [ "$N" == "100" ]; then
+          $DIALOG --title " Error adding user "  \
+	          --msgbox "Unable to allocate a low GID for $group!" \
+	          8 50
+	  return 1
+	else
+	  TMP_GROUPID="-g $N"
+	fi
+      fi
+      exec_command "groupadd $TMP_GROUPID $group"
+    fi
+  fi
+}
+
+
+del_group_menu() {
+ while true ; do
+  group=`$DIALOG --title " Select a group to delete " \
+                 --ok-label      "Delete"           \
+                 --cancel-label  "Exit"             \
+                 --menu "" 0 60 15                  \
+                $(list_groups_long)`
+  if [ $? != 0 ] ; then
+    return
+  fi
+  group=$(echo $group | tr -d " ")
+  if [ -n "$group" ] ; then
+    GROUPNAME=$(getent group $group | cut -d: -f1)
+    exec_command "groupdel $GROUPNAME"
+  fi
+ done
+}
+
+
+edit_group_data() {
+  result=`$DIALOG --title " Add or Remove users " \
+                  --separate-output               \
+                  --checklist "" 0 0 0            \
+		  $(list_users_in_group $1)`
+  for N in $result ; do
+    N=$(echo $N | sed "s: ::g")
+    UNM=$(getent passwd `echo $N | sed 's: ::g'` | cut -d: -f1);
+    if [ -n "$UNM" ] ; then
+      UNM=$(getent passwd `echo $N | sed 's: ::g'` | cut -d: -f1);
+      if [ -n "$UNML" ] ; then
+        UNML=$UNML,$UNM
+      else
+        UNML=$UNM
+      fi
+    fi
+  done
+  GNM=$(getent group $1 | cut -d: -f1)
+  NEWGROUPSTR=$(getent group $1 | UNML="$UNML" awk -F: '{print $1":"$2":"$3":"ENVIRON["UNML"]}')
+  exec_command "cp /etc/group /etc/group- && grep -v \"^$GNM:\" /etc/group- > /etc/group && echo \"$NEWGROUPSTR\" >> /etc/group"
+}
+
+
+edit_group_menu() {
+ while true ; do
+  group=`$DIALOG --title " Select a group to edit " \
+                 --ok-label      "Edit"             \
+                 --cancel-label  "Exit"             \
+                 --menu "" 0 60 15                  \
+                $(list_groups_long)`
+  if [ $? != 0 ] ; then
+    return
+  fi
+  group=$(echo $group | tr -d " ")
+  if [ -n "$group" ] ; then
+    edit_group_data $(echo $group)
+  fi
+ done
+}
+
+
+main_menu() {
+ while true ; do
+  action=`$DIALOG --title " Select an Option "      \
+                  --ok-label  "Go"                \
+		  --cancel-label "Exit"           \
+		  --menu                          \
+		  ""                              \
+		  0 0 0                           \
+		  " UserAdd "  " Add a new user "                        \
+		  " UserDel "  " Delete an existing user "               \
+		  " UserEdit " " Modify an existing user's properties "  \
+		  " ======== " ""                                        \
+		  " GroupAdd " " Add a new group "                       \
+		  " GroupDel " " Delete an existing group "              \
+		  " GroupEdit " " Modify a existing group's members "`
+  if [ $? != 0 ] ; then
+    return
+  fi
+  if [ "$action" == " UserAdd " ] ; then
+    add_user_menu
+  elif [ "$action" == " UserDel " ] ; then
+    del_user_menu
+  elif [ "$action" == " UserEdit " ] ; then
+    edit_user_menu
+  elif [ "$action" == " GroupAdd " ] ; then
+    add_group_menu
+  elif [ "$action" == " GroupDel " ] ; then
+    del_group_menu
+  elif [ "$action" == " GroupEdit " ] ; then
+    edit_group_menu
+  fi
+ done
+}
+
+
+
+. /etc/lunar/config
+  
+export IFS="$TAB_ENTER_IFS"
+
+DIALOG="dialog
+--backtitle
+Lunar User Management Utility
+--stdout"
+
+main_menu
+

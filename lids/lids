@@ -1,0 +1,219 @@
+#!/bin/bash
+
+#########################################################################
+#                                                                       #
+# lids - a set of lunar intrusion detection tools                       #
+#                                                                       #
+#########################################################################
+
+#
+# Copyright Auke Kok <koka@geo.vu.nl> 2003 under GPLv2
+#
+
+#
+# reads $* files and checks permissions
+#
+# files contain lines formatted like this:
+# <file> <owner>:<group> <permissions>
+#
+# <file> may contain wildcards
+# <owner> username|numeric uid
+# <group> groupname|numeric gid
+# <permissions> may be numeric [0755] or ls -l type [-rwxrx----]
+#
+
+function freeform2numeric () {
+  ((PERM=0))
+  # translate -rwxrw-rw- to 0766
+  [ "${1:1:1}" == "r" ] && ((PERM += 400));
+  [ "${1:2:1}" == "w" ] && ((PERM += 200));
+  [ "${1:3:1}" == "x" ] && ((PERM += 100));
+  [ "${1:4:1}" == "r" ] && ((PERM += 40));
+  [ "${1:5:1}" == "w" ] && ((PERM += 20));
+  [ "${1:6:1}" == "x" ] && ((PERM += 10));
+  [ "${1:7:1}" == "r" ] && ((PERM += 4));
+  [ "${1:8:1}" == "w" ] && ((PERM += 2));
+  [ "${1:9:1}" == "x" ] && ((PERM += 1));
+  [ "${1:3:1}" == "s" ] && ((PERM += 4100));
+  [ "${1:3:1}" == "S" ] && ((PERM += 4000));
+  [ "${1:6:1}" == "s" ] && ((PERM += 2010));
+  [ "${1:6:1}" == "S" ] && ((PERM += 2000));
+  [ "${1:9:1}" == "t" ] && ((PERM += 1001));
+  [ "${1:9:1}" == "T" ] && ((PERM += 1000));
+  [ ${#PERM} -eq 3 ] && PERM="0$PERM"
+  echo $PERM
+}
+
+help () {
+  cat <<EOF
+$0 - check md5sums, and check and set file permissions, uid/gid values
+
+Usage:              $0 [create|check|set] [module(s)]
+
+$0 check [module(s)]    - check module's permissions and owner
+$0 md5check [module(s)] - check module's md5sums
+$0 create [module(s)]   - create permission log for module(s)
+$0 set [module(s)]      - set/correct file permissions and owner for module(s)
+
+Optional parameters:
+
+-q  | --quiet           No screen output, just do the work
+-d  | --debug           Enables debug messages
+-v  | --verbose         Increases the level of message output
+-h  | --help            Show this message
+
+EOF
+  exit 1
+}
+
+
+check_perms() {
+ if [ -z "$*" ] ; then
+   MODULES=$(list_installed)
+ else
+   MODULES="$@"
+ fi
+ 
+ for MODULE in $MODULES ; do
+  FILE=/var/log/lunar/permissions/$MODULE-$(installed_version $MODULE)
+  if [ -e "$FILE" ] ; then
+    verbose_msg "checking permissions for \"$MODULE\""
+    # echo "$FILE: processing"
+    while read FNAME FOWN FPERM ; do
+      # filenames must be absolute
+      debug_msg "checking \"$FNAME\""
+      if [ "${FNAME:0:1}" == "/" ] ; then
+        # does it exist (we skip otherwise)
+        if [ -e "$FNAME" ] ; then
+	  # fix the naugty 0 in front
+          [ ${#FPERM} -eq 3 ] && PERM="0$FPERM"
+	  # get local copy info
+          LPERM=$(ls -ld "$FNAME" | awk '{print $1}')
+          LOWN=$(ls -ld "$FNAME" | awk '{print $3":"$4}')
+          LPERM=$(freeform2numeric "$LPERM")
+	  # check owner && group
+          if [ "$LOWN" != "$FOWN" ] ; then
+	    if [ -n "$SETPERMS" ] ; then
+	      /bin/chown $FOWN $FNAME
+	      [ -n $QUIET] && echo "$FNAME: Bad ownership $LOWN, must be $FOWN, Fixed"
+	    else
+	      [ -n $QUIET] && echo "$FNAME: Bad ownership $LOWN, must be $FOWN"
+	    fi
+          fi
+	  # check permission bits but skip links!!!!
+          if [ "$LPERM" != "$FPERM" ] && [ ! -L "$FNAME" ] ; then
+	    if [ -n "$SETPERMS" ] ; then
+	      /bin/chmod "$FPERM" "$FNAME"
+	      [ -n "$QUIET" ] && echo "$FNAME: Bad permissions $LPERM, must be $FPERM, Fixed"
+	    else
+	      [ -n "$QUIET" ] && echo "$FNAME: Bad permissions $LPERM, must be $FPERM"
+	    fi
+          fi
+        fi
+      else
+        case "$FNAME" in 
+	  \#*|"")   continue
+	            ;;
+	       *)   [ -n "$QUIET" ] &&
+	             echo "$FNAME: Filenames must be absolute! Aborting."
+		    exit 1
+		    ;;
+	esac
+      fi
+    done < "$FILE"
+  else
+    [ -n "$QUIET" ] && "$FILE: no such permission file!"
+  fi
+ done
+}
+
+
+get_perms() {
+  if [ -z "$*" ] ; then
+    MODULES=$(list_installed)
+  else
+    MODULES="$@"
+  fi
+
+  if [ ! -d /var/log/lunar/permissions ] ; then
+    mkdir -p /var/log/lunar/permissions
+  fi
+  
+  for MODULE in $MODULES ; do
+    verbose_msg "generating permission file for \"$MODULE\""
+    INFILE=/var/log/lunar/install/$MODULE-$(installed_version $MODULE)
+    # we do not use the version in here to allow permissions to be saved
+    # between upgrades
+    OUTFILE=/var/log/lunar/permissions/$MODULE
+    if [ -f $INFILE ] ; then
+      while read FNAME ; do
+        if [ -e "$FNAME" -a ! -L "$FNAME" ] ; then
+          LPERM=$(ls -ld "$FNAME" | awk '{print $1}')
+          LOWN=$(ls -ld "$FNAME" | awk '{print $3":"$4}')
+          LPERM=$(freeform2numeric "$LPERM")
+	  STRING="$FNAME"
+          for (( N=${#FNAME} ; N<58 ; N=$N+1 )) ; do 
+            STRING="$STRING "
+          done
+          STRING="$STRING $LOWN"
+          for (( N=${#LOWN} ; N<15 ; N=$N+1 )) ; do
+	    STRING="$STRING "
+          done
+          STRING="$STRING $LPERM"
+	  echo "$STRING"
+        fi
+      done < "$INFILE" > "$OUTFILE"
+    else
+      message "skipping \"$MODULE\" due to missing install log!"
+    fi
+  done
+}
+
+
+check_md5sums() {
+  if [ -z "$*" ] ; then
+    MODULES=$(list_installed)
+  else
+    MODULES="$@"
+  fi
+
+  for MODULE in $MODULES ; do
+    verbose_msg "checking md5sums for \"$MODULE\""
+    md5sum_check $MODULE
+  done
+}
+
+
+. /etc/lunar/config
+
+GETOPT_ARGS=$(getopt -q -n lids -o "dvhs" -l "debug,verbose,help,silent" -- "$@")
+
+if [ -z "$?" ] ; then
+  help | view_file
+  exit
+else
+  eval set -- $GETOPT_ARGS
+  export IFS="$STANDARD_IFS"
+  
+  set_priority
+
+  while true ; do
+    case "$1" in
+      -d|--debug       ) (( LUNAR_DEBUG++ )) ; export LUNAR_DEBUG ; shift   ;;
+      -v|--verbose     ) export VERBOSE="on" ;                      shift   ;;
+      -s|--silent      ) export SILENT="$1" ;                       shift   ;;
+      --) shift ; break ;;
+      *) help ; break ;;
+    esac
+  done
+
+  case "$1" in
+    md5check) shift ; check_md5sums "$@"                     ;;
+    check)    shift ; check_perms "$@"                       ;;
+    set)      shift ; export SETPERMS=on ; check_perms "$@"  ;;
+    create)   shift ; get_perms "$@"                         ;;
+    *) help ; exit ;;
+  esac
+fi
+
+

@@ -1,0 +1,334 @@
+#!/bin/sh
+############################################################
+# Copyright 2002 by Lunar Penguin                          #
+############################################################
+# lnet is a menu driven configurator for the networking    #
+# init script                                              #
+############################################################
+# Hacked up by Rick Altherr for his purposes (muhuhahaha)  #
+#                                                          #
+# Just kidding.  This is an adaption of the network config #
+# contained within the Lunar install script.               #
+#							   #
+# this code is GPL'd					   #
+############################################################
+
+CONFIG_DIR="/etc/config.d/network"
+
+inputbox()  {
+  $DIALOG --nocancel --inputbox "$1" 0 0 "$2"
+}
+
+catch_sig()  {
+  clear
+  if [ -f /tmp/lnet.resolv.conf ]; then
+    mv /tmp/lnet.resolv.conf /etc/resolv.conf
+  fi
+  if [ -f /tmp/lnet.$DEVICE ]; then
+    mv /tmp/lnet.$DEVICE $OUT_TO
+  fi
+
+  # /tmp could have wireless WEPKEYS, so if we worked on more than one
+  # device, we're only trying to save one, we're going to kill any others
+  rm -f /tmp/lnet.*
+  echo "Tried to restore device config file and resolv.conf from /tmp"
+  echo "Ouch * that hurt you may want to double check /tmp"
+  exit 1
+}
+
+confirm()  {
+  $DIALOG $2 --yesno "$1" 8 50
+}
+
+
+goodbye() {
+  clear
+  exit  0
+}
+
+main() {
+
+export  PATH="/bin:/usr/bin:/sbin:/usr/sbin:/usr/local/bin"
+
+while true; do
+         unset PROMPT COUNTER
+	 COUNTER=1
+         CONFIGDIR="/etc/config.d/network"
+
+	 for DEVICE in `ls -1 $CONFIGDIR`; do
+	     if [ -L $CONFIGDIR/$DEVICE ]; then continue; fi;
+	     INTERFACES[$COUNTER]=$DEVICE
+	     echo $DEVICE
+	     PROMPT="$PROMPT $COUNTER $DEVICE"
+	     let COUNTER=$COUNTER+1
+	 done;
+    COMMAND=`$DIALOG  --title "Networking Device"    \
+                      --nocancel                     \
+                      --menu                         \
+		      "Select a device to edit"      \
+                      0 0 0                          \
+		      $PROMPT                        \
+                      'A'  'Add'                     \
+                      'D'  'DNS'                     \
+		      'G'  'Gateway'                 \
+		      'E'  'Exit'             `
+
+    case  $COMMAND  in
+      [0-9])  ethernet_menu ${INTERFACES[$COMMAND]} ;;
+      A)      ethernet_config ;;
+      D)      dns_config ;;
+      G)      gateway_config ;;
+      E)      return    ;;
+    esac
+ done
+}
+
+function dns_config() {
+              RESOLV="/etc/resolv.conf"
+
+    cp -p $RESOLV /tmp/lnet.resolv.conf
+
+       DOMAIN_PROMPT="Enter Primary local Domain name"
+         DNS1_PROMPT="Enter Primary DNS Server IP Address"
+         DNS2_PROMPT="Enter Secondary DNS Server IP Address"
+
+	DNS1="`grep nameserver $RESOLV | head -n 1 | cut -d \" \" -f2`"
+	DNS2="`grep nameserver $RESOLV | head -n 2 | tail -n 1 | cut -d \" \" -f2`"
+        DOMAIN="`grep domain $RESOLV | head -n 1 | cut -d \" \" -f2`"
+
+    if [ -z $DNS1 ]; then DNS1="${IP%.*}.254"; fi;
+
+    if [ -z $DOMAIN ]; then DOMAIN="subd.com"; fi;
+
+    DOMAIN=`inputbox  "$DOMAIN_PROMPT"      $DOMAIN`
+
+    DNS1=`inputbox  "$DNS1_PROMPT"          $DNS1`
+
+    if [ -z $DNS2 ]; then 
+        if [ -z $DNS1 ]; then
+            let DNS2="";
+        else 
+            let N_DNS=${DNS1##*.}+1; 
+            DNS2="${DNS1%.*}.$N_DNS";
+        fi;
+    fi;
+    DNS2=`inputbox  "$DNS2_PROMPT"          "$DNS2"` 
+
+    
+    if [ ! -z $DNS1 ]; then
+        echo   "domain $DOMAIN"                  >   $RESOLV
+        echo   "nameserver $DNS1"                >>  $RESOLV
+	if [ ! -z $DNS2 ]; then
+            echo   "nameserver $DNS2"               >>   $RESOLV
+	fi;
+    else
+	if [ ! -z $DNS2 ]; then
+            echo   "domain $DOMAIN"                  >   $RESOLV
+            echo   "nameserver  $DNS2"               >>  $RESOLV
+	fi;
+    fi;
+}
+
+function gateway_config() {
+      GATEWAY_PROMPT="Enter Gateway IP Address"
+
+      GATEWAY=`inputbox  "$GATEWAY_PROMPT"       "$GATEWAY"`
+
+cat > /etc/config.d/gateway << EOF
+$GATEWAY
+EOF
+}
+
+function ethernet_menu() {
+
+    COMMAND=`$DIALOG  --title "Networking Device"    \
+                      --nocancel                     \
+                      --menu                         \
+		      "Select a device to edit"      \
+                      0 0 0                          \
+                      'C'  'Configure'               \
+                      'D'  'Delete'                  \
+                      'E'  'Exit' `
+
+    case  $COMMAND  in
+      C)      ethernet_config $1;;
+      D)      rm "$CONFIG_DIR/$1";;
+    esac
+}
+
+function ethernet_config()  {
+# unset all variables
+unset WIRELESS DEVICE AUTO MODULE  MODULE_OPTIONS ADDRESS
+unset NETMASK BROADCAST GATEWAY DHCP_CLIENT DHCP_OPTIONS AUTO_OPT
+unset WIRELESS_KEY WIRELESS_RATE WIRELESS_MODE WIRELESS_ESSID DHCP
+unset DHCP_OPT WIRELESS_OPT WIRELESS_OPT2 IP
+
+
+if [ ! -z $1 ]; then
+   . $CONFIG_DIR/$1
+fi;
+
+
+
+         AUTO_PROMPT="Should this interface be activated on boot (for PCMCIA select NO)?"
+         DHCP_PROMPT="Will you require DHCP?"
+  DHCP_CLIENT_PROMPT="Which DHCP client do you want to use?"
+ DHCP_OPTIONS_PROMPT="What options do you need to pass to your DHCP client (press return for none)?"
+       DEVICE_PROMPT="For more then one device, use the menu for each of them, ie: eth0, eth1 etc.."
+     WIRELESS_PROMPT="Is this a wireless device?"
+           IP_PROMPT="Enter IP Address"
+      NETMASK_PROMPT="Enter Netmask"
+    BROADCAST_PROMPT="Enter Broadcast IP Address"
+  IFCONF_OPTS_PROMPT="Enter extra options passed to ifconfig"
+       MODULE_PROMPT="Optionally, enter the NIC kernel module to load, but leave off the .o"
+  MODULE_OPTS_PROMPT="Optionally, enter the NIC module parameters"
+ WIRELESS_KEY_PROMPT="What is the encryption key used? prefix with s: if ASCII, press return if NONE"
+WIRELESS_RATE_PROMPT="What rate should be used (e.g. 11M or press return for auto)?"
+WIRELESS_MODE_PROMPT="What mode should be used (Managed or Ad-Hoc)?"
+ WIRELESS_ESS_PROMPT="What is the ESSID or network name (return for auto)?"
+        ROUTE_PROMPT="If needed add route declarations. Leave blank if you don't need any. The path to 'route' itself will be added automatcally and you also don't need to specify 'route' itself. 'add' entries will be replace with 'del' entries and undone in the reverse order when the interface is shutdown."
+
+if [ -z $1 ]; then
+     while [ -z $DEVICE ]; do
+         DEVICE=`inputbox  "$DEVICE_PROMPT"    "eth0"`
+     done;
+else
+	 DEVICE=$1
+fi;
+
+         MODULE=`inputbox  "$MODULE_PROMPT"    "$MODULE"`            &&
+ MODULE_OPTIONS=`inputbox  "$MODULE_OPTS_PROMPT" "$MODULE_OPTIONS"`  &&
+
+  if ( [ ! -z $WIRELESS_MODE ] || [ ! -z $WIRELESS_KEY ] || [ ! -z $WIRELESS_RATE ] || [ ! -z $WIRELESS_ESSID ] ); then
+       WIRELESS_OPT=""
+  else
+       WIRELESS_OPT="--defaultno"
+  fi;
+
+  if confirm "$WIRELESS_PROMPT" "$WIRELESS_OPT" ; then
+          WIRELESS_KEY=`inputbox  "$WIRELESS_KEY_PROMPT" "$WIRELESS_KEY"`             &&
+	  if [ ! -z $WIRELESS_MODE ]; then
+	      WIRELESS_OPT2="--default-item $WIRELESS_MODE";
+	  fi;
+
+          WIRELESS_MODE=`$DIALOG   $WIRELESS_OPT2 --no-cancel --title  "Wireless Modes"           \
+                                   --menu                              \
+                                   "$WIRELESS_MODE_PROMPT"             \
+                                   0 0 0                               \
+                                   "Managed"  ""                       \
+                                   "Ad-Hoc"   ""  `                    &&
+
+          WIRELESS_RATE=`inputbox  "$WIRELESS_RATE_PROMPT" "$WIRELESS_RATE"`            &&
+         WIRELESS_ESSID=`inputbox  "$WIRELESS_ESS_PROMPT" "$WIRELESS_ESSID"` 
+  else
+         unset WIRELESS_KEY WIRELESS_MODE WIRELESS_RATE WIRELESS_ESSID
+  fi;
+
+  case $ADDRESS in
+     [dD][hH][cC][pP]) DHCP_OPT="" ;;
+     *) DHCP_OPT="--defaultno" ;;
+  esac;
+
+  if  confirm  "$DHCP_PROMPT" "$DHCP_OPT" ;  then
+       unset ADDRESS NETMASK GATEWAY BROADCAST
+
+       DHCP_CLIENT=`$DIALOG  --no-cancel --title  "$TITLE"   \
+                             --menu                          \
+                             "$DHCP_CLIENT_PROMPT"           \
+                             0 0 0                           \
+                             "dhcpcd"    ""                  \
+                             "dhclient"  ""                  \
+                             "udhcpc"    "" `                &&
+
+       DHCP_OPTIONS=`inputbox  "$DHCP_OPTIONS_PROMPT" "$DHCP_OPTIONS"`  
+       ADDRESS=dhcp
+  else
+  		unset DHCP_CLIENT DHCP_OPTIONS
+  		if [ -z $DHCP_OPT ]; then ADDRESS="10.0.0.1"; fi;
+  		if [ -z $ADDRESS ]; then ADDRESS="10.0.0.1"; fi;
+	while [ -z $IP ]; do
+              IP=`inputbox  "$IP_PROMPT"            "$ADDRESS"`           
+        done;
+	        if [ -z $NETMASK ]; then NETMASK="255.255.255.0"; fi;
+         NETMASK=`inputbox  "$NETMASK_PROMPT"       "$NETMASK"`      
+	        if [ -z $BROADCAST ]; then BROADCAST="${IP%.*}.255"; fi;
+       BROADCAST=`inputbox  "$BROADCAST_PROMPT"     "$BROADCAST"`       
+                if [ -z $GATEWAY ]; then GATEWAY="${IP%.*}.1"; fi;
+     IFCONF_OPTS=`inputbox  "$IFCONF_OPTS_PROMPT"   "$IFCONF_OPTS"`
+
+         ADDRESS=$IP
+
+  fi;
+
+  # start by default?
+  case $AUTO in
+    [^yY])
+      AUTO_OPT="--defaultno"
+    ;;
+  esac
+   
+  if confirm "$AUTO_PROMPT" $AUTO_OPT; then 
+    AUTO="Y" 
+  else
+    AUTO="N"
+  fi
+
+  # add routing options?
+  ROUTE_1=`inputbox "$ROUTE_PROMPT" "$ROUTE_1"`
+  if [ -n "$ROUTE_1" ] ; then
+    ROUTE_2=`inputbox "$ROUTE_PROMPT" "$ROUTE_2"`
+    if [ -n "$ROUTE_2" ] ; then
+      ROUTE_3=`inputbox "$ROUTE_PROMPT" "$ROUTE_3"`
+      if [ -n "$ROUTE_3" ] ; then
+        ROUTE_4=`inputbox "$ROUTE_PROMPT" "$ROUTE_4"`
+      else
+        unset ROUTE_4
+      fi
+    else
+      unset ROUTE_3 ROUTE_4
+    fi
+  else
+    unset ROUTE_2 ROUTE_3 ROUTE_4
+  fi
+
+  OUT_TO=$CONFIG_DIR/$DEVICE
+  cp -p $OUT_TO /tmp/lnet.$DEVICE
+  cat > $OUT_TO << EOF
+AUTO=$AUTO
+MODULE=$MODULE
+MODULE_OPTIONS=$MODULE_OPTIONS
+
+WIRELESS=$WIRELESS
+WIRELESS_KEY=$WIRELESS_KEY
+WIRELESS_RATE=$WIRELESS_RATE
+WIRELESS_MODE="$WIRELESS_MODE"
+WIRELESS_ESSID="$WIRELESS_ESSID"
+
+ADDRESS=$ADDRESS
+NETMASK=$NETMASK
+BROADCAST=$BROADCAST
+IFCONF_OPTS="$IFCONF_OPTS"
+
+DHCP_CLIENT=$DHCP_CLIENT
+DHCP_OPTIONS="$DHCP_OPTIONS"
+
+ROUTE_1="$ROUTE_1"
+ROUTE_2="$ROUTE_2"
+ROUTE_3="$ROUTE_3"
+ROUTE_4="$ROUTE_4"
+EOF
+
+}
+
+
+if [ "$UID" == 0 ]; then
+  DIALOG="dialog --backtitle lnet --stdout"
+  trap catch_sig INT
+  trap ":" QUIT
+  main
+else
+  echo ""
+  echo "User must have root privileges to run this program"
+  echo ""
+fi
+
