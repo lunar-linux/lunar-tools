@@ -404,3 +404,5 @@ colony_menu()  {
       E)  colony_enchantment_menu  ;;
     esac
   done
+}
+
