@@ -32,6 +32,7 @@ Commands:
     destroy     delete the cluster definition
     test        test if all nodes are reachable
     run         run a command on all nodes
+    brun        same as run but perform tasks simultaneously
     add         add a node to a cluster
     remove      remove a node from a cluster
     login       log in to a cluster
@@ -55,6 +56,10 @@ Syntax:
 
     clad run "name" "command"
         Run a command on a cluster
+    
+    clad bgrun "name" "command"
+        Run a command on a cluster. The command will be started in the
+        background immediately on all nodes instead of one at a time
     
     clad add "name" "node1" ["node2" ...]
         Add node(s) to a cluster
@@ -272,6 +277,30 @@ else
                 fi
             fi
         ;;
+        bgrun)
+            if [ -z "$2" ]; then
+                message "ERROR: can't run on all clusters yet"
+            else
+                CL=$2
+                shift 2
+                if [ ! -f "$CLAD_CONF_DIR/.$CL.id_dsa" ]; then
+                    message "No keys exist for cluster \"$CL\", cannot continue"
+                else
+                    cluster_login $CL
+                    for MEMBER in $(cat $CLAD_CONF_DIR/$CL); do
+                      (
+                        if ssh -q -i $CLAD_CONF_DIR/.$CL.id_dsa $USER@$MEMBER "$@"; then
+                            verbose_msg "member \"$MEMBER\" ran OK"
+                        else
+                            message "$MEMBER: FAILED"
+                        fi
+                      ) &
+                    done
+                    wait
+                    cluster_logout $CL
+                fi
+            fi
+            ;;
         login)
             if [ -n "$CLAD_DEGRADED" ]; then
                 message "ERROR: can't login when running in degraded mode"
