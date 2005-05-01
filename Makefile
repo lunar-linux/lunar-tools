@@ -38,4 +38,4 @@ install:
 	done
 
 release:
-	tar cjvf /tmp/lunar-tools-${VERSION}.tar.bz2 --exclude="*/CVS*" -C .. lunar-tools/ ; \
+	tar cjvf /tmp/lunar-tools-${VERSION}.tar.bz2 --exclude="*/.svn*" -C .. lunar-tools/ ; \
