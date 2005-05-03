@@ -1,0 +1,50 @@
+
+ lunar-tools -- a set of lunar-related tools
+
+
+Lunar-tools contains some non-core system tools for various system
+administration tasks. Here's a short overview:
+
+clad -- cluster administation
+
+	clad is a tool to run a job serialized or parallellized on a group
+	of machines. clad relies on ssh host keys and is purely written
+	for remote root access. With clad, you can define groups of machines
+	dynamically and add or remove hosts with relative ease. Once
+	defined, all the hosts can perform any command with a single
+	command.
+
+lids -- lunar intrusion detection system
+
+	lids is a simple tool that provides a feature that lunar is missing
+	by default - permission and owner checking. lids can also check
+	the md5sums of installed modules and generate permission lists
+	for later checking.
+
+lmodules -- lunar modules aid
+
+	lmodules provides an easy ncurses interface to maintain the
+	list of needed system kernel modules. It modifies the required /etc
+	configuration files as needed and stores your changes.
+
+lnet -- lunar networking configuration
+
+	lnet is the core tool for configuring your network devices. It's a
+	ncurses frontend that allows you to add, edit and delete network
+	devices, setup your gateway, special routing, hostname and DNS
+	settings.
+
+lservices -- lunar startup services
+
+	lservices provides a simple but rudimentary interface in ncurses
+	that allows you to start, stop, enable and disable startup
+	services. lservices also stores your choices for lunar which will
+	remember your choices.
+
+luser -- lunar user admin tool
+
+	luser is a ncurses user administration tool that adds easy methods
+	for modifying the passwd, shadow and group files. luser can perform
+	tasks such as locking users, delete them, modify groups and with
+	great ease.
+

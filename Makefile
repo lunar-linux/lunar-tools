@@ -8,12 +8,15 @@
 VERSION = 2005.2
 
 PROGRAMS = lids/lids luser/luser lnet/lnet lservices/lservices lmodules/lmodules clad/clad
-SBINDIR = /usr/sbin/
-BINDIR = /usr/bin/
-MANDIR = /usr/share/man/
-PROFILEDDIR = /etc/profile.d/
+DOCS = README COPYING
 MANPAGES = lnet/lnet.8
 PROFILEDFILES = clad/clad.rc
+
+BINDIR = /usr/bin/
+SBINDIR = /usr/sbin/
+MANDIR = /usr/share/man/
+DOCDIR = /usr/share/doc/lunar-tools/
+PROFILEDDIR = /etc/profile.d/
 
 all:
 install:
@@ -35,6 +38,12 @@ install:
 	fi ; \
 	for RCFILE in ${PROFILEDFILES} ; do \
 	    install -m644 $${RCFILE} ${PROFILEDDIR} ; \
+	done ; \
+	if [ ! -d "${DOCDIR}" ] ; then \
+		mkdir -p ${DOCDIR} ; \
+	fi ; \
+	for DOC in ${DOCS} ; do \
+		install -m644 $${DOC} ${DOCDIR} ; \
 	done
 
 release:
