@@ -7,7 +7,7 @@
 #  clad is a cleanroom implementation of colony. not a single line of    #
 #  code was copied in any way. Just so you know                          #
 #                                                                        #
-#  clad is copyright (c) 2004 - Auke Kok                                 #
+#  clad is copyright (c) 2004,2005 - Auke Kok                            #
 #                                                                        #
 #  This code is GPLv2                                                    #
 #                                                                        #
@@ -25,6 +25,7 @@ Usage:
 General options:
     -d | --debug     Enables debug messages
     -h | --help      Displays this help text (--help shows more)
+    -n | --nohost    Don't display the hostname before every line of output
     -v | --verbose   Increases the level of message output
 
 Commands:
@@ -87,6 +88,7 @@ cluster_login()
     fi
 }
 
+
 cluster_logout()
 {
     if [ "$LOGOUT" != 0 ]; then
@@ -96,6 +98,17 @@ cluster_logout()
         fi
     fi
 }
+
+
+node_run()
+{
+	if [ "$NOHOST" == "on" ]; then 
+		ssh -q -i $CLAD_CONF_DIR/.$CL.id_dsa $USER@$MEMBER "$@" | cat 2>&1
+	else
+		ssh -q -i $CLAD_CONF_DIR/.$CL.id_dsa $USER@$MEMBER "$@" | sed "s/^/$MEMBER: /g" 2>&1
+	fi
+}
+
 
 . /etc/lunar/config
 
@@ -107,7 +120,7 @@ if [ ! -d $CLAD_CONF_DIR ]; then
     chmod 700 $CLAD_CONF_DIR
 fi
 
-GETOPT_ARGS=$(getopt -q -n lunar -o "dhv" -l "debug,help,verbose" -- "$@")
+GETOPT_ARGS=$(getopt -q -n lunar -o "dhnv" -l "debug,help,nohost,verbose" -- "$@")
 
 if [ -z "$?" ] ; then
     help short
@@ -144,6 +157,10 @@ else
                 help long
                 exit 1
             ;;
+			-n|--nohost)
+				export NOHOST="on"
+				shift
+			;;
             -v|--verbose)
                 export VERBOSE="on"
                 shift
@@ -159,49 +176,66 @@ else
         esac
     done
 
-    case "$1" in
+	COMMAND=$1
+	shift
+
+	# multiplexing here:
+	if echo $1 | grep -q ',' ; then
+		TARGETS=$1
+		shift
+		for TARGET in $(echo $TARGETS | sed 's/,/ /g'); do
+			verbose_msg "Executing '$0 $COMMAND $TARGET \"$@\"'"
+			$0 $COMMAND $TARGET "$@"
+		done
+		exit $?
+	else
+		TARGET=$1
+		shift
+	fi
+
+    case "$COMMAND" in
         create)
-            if [ ! -e $CLAD_CONF_DIR/$2 ]; then
-                verbose_msg "Creating cluster \"$2\""
-                touch $CLAD_CONF_DIR/$2
-                verbose_msg "Creating ssh keys for cluster \"$2\""
-                ssh-keygen -t dsa -f $CLAD_CONF_DIR/.$2.id_dsa
+            if [ ! -e $CLAD_CONF_DIR/$TARGET ]; then
+                verbose_msg "Creating cluster \"$TARGET\""
+                touch $CLAD_CONF_DIR/$TARGET
+                verbose_msg "Creating ssh keys for cluster \"$TARGET\""
+                ssh-keygen -t dsa -f $CLAD_CONF_DIR/.$TARGET.id_dsa
             else
-                message "Cluster \"$2\" already exists"
+                message "Cluster \"$TARGET\" already exists"
                 exit 1
             fi
         ;;
         destroy)
-            if [ -f $CLAD_CONF_DIR/$2 ]; then
-                verbose_msg "Destroying cluster \"$2\""
+            if [ -f $CLAD_CONF_DIR/$TARGET ]; then
+                verbose_msg "Destroying cluster \"$TARGET\""
                 unset CLAD_PROBLEM
-                for MEMBER in $(cat $CLAD_CONF_DIR/$2); do
-                    if ! $0 remove $2 $MEMBER; then
+                for MEMBER in $(cat $CLAD_CONF_DIR/$TARGET); do
+                    if ! $0 remove $TARGET $MEMBER; then
                         message "Removing node \"$MEMBER\" FAILED"
                         CLAD_PROBLEM=1
                     else
-                        verbose_msg "Removed node \"$MEMBER\" from cluster \"$2\""
+                        verbose_msg "Removed node \"$MEMBER\" from cluster \"$TARGET\""
                     fi
                 done
                 if [ -z "$CLAD_PROBLEM" ]; then
-                    rm $CLAD_CONF_DIR/$2
-                    rm $CLAD_CONF_DIR/.$2.id_dsa
-                    rm $CLAD_CONF_DIR/.$2.id_dsa.pub
+                    rm $CLAD_CONF_DIR/$TARGET
+                    rm $CLAD_CONF_DIR/.$TARGET.id_dsa
+                    rm $CLAD_CONF_DIR/.$TARGET.id_dsa.pub
                 else
-                    message "Could not remove all nodes from cluster \"$2\", cluster not destroyed!"
+                    message "Could not remove all nodes from cluster \"$TARGET\", cluster not destroyed!"
                     exit 1
                 fi
             else
-                message "Cluster \"$2\" does not exist"
+                message "Cluster \"$TARGET\" does not exist"
                 exit 1
             fi
         ;;
         add)
-            if [ ! -f $CLAD_CONF_DIR/$2 ]; then
-                message "Cluster \"$2\" does not exist"
+            if [ ! -f $CLAD_CONF_DIR/$TARGET ]; then
+                message "Cluster \"$TARGET\" does not exist"
                 exit 1
             else
-                CL=$2
+                CL=$TARGET
                 shift 2
                 cluster_login $CL
                 while [ -n "$1" ]; do
@@ -219,11 +253,11 @@ else
             fi
         ;;
         remove)
-            if [ ! -f $CLAD_CONF_DIR/$2 ]; then
-                message "Cluster \"$2\" does not exist"
+            if [ ! -f $CLAD_CONF_DIR/$TARGET ]; then
+                message "Cluster \"$TARGET\" does not exist"
                 exit 1
             else
-                CL=$2
+                CL=$TARGET
                 shift 2
                 cluster_login $CL
                 while [ -n "$1" ]; do
@@ -240,34 +274,34 @@ else
             fi
         ;;
         list)
-            if [ -z "$2" ]; then
+            if [ -z "$TARGET" ]; then
                 ls $CLAD_CONF_DIR
             else
-                if [ ! -f $CLAD_CONF_DIR/$2 ]; then
-                    message "Cluster \"$2\" does not exist"
+                if [ ! -f $CLAD_CONF_DIR/$TARGET ]; then
+                    message "Cluster \"$TARGET\" does not exist"
                     exit 1
                 else
-                    cat $CLAD_CONF_DIR/$2
+                    cat $CLAD_CONF_DIR/$TARGET
                 fi
             fi
         ;;
         test)
-            CL=$2
+            CL=$TARGET
             shift 2
-            $0 run $CL 'echo `uname -n`: OK'
+            $0 run $CL 'echo OK'
         ;;
         run)
-            if [ -z "$2" ]; then
+            if [ -z "$TARGET" ]; then
                 message "ERROR: can't run on all clusters yet"
             else
-                CL=$2
+                CL=$TARGET
                 shift 2
                 if [ ! -f "$CLAD_CONF_DIR/.$CL.id_dsa" ]; then
                     message "No keys exist for cluster \"$CL\", cannot continue"
                 else
                     cluster_login $CL
                     for MEMBER in $(cat $CLAD_CONF_DIR/$CL); do
-                        if ssh -q -i $CLAD_CONF_DIR/.$CL.id_dsa $USER@$MEMBER "$@"; then
+                        if node_run "$@"; then
                             verbose_msg "member \"$MEMBER\" ran OK"
                         else
                             message "$MEMBER: FAILED"
@@ -278,10 +312,10 @@ else
             fi
         ;;
         bgrun)
-            if [ -z "$2" ]; then
+            if [ -z "$TARGET" ]; then
                 message "ERROR: can't run on all clusters yet"
             else
-                CL=$2
+                CL=$TARGET
                 shift 2
                 if [ ! -f "$CLAD_CONF_DIR/.$CL.id_dsa" ]; then
                     message "No keys exist for cluster \"$CL\", cannot continue"
@@ -289,7 +323,7 @@ else
                     cluster_login $CL
                     for MEMBER in $(cat $CLAD_CONF_DIR/$CL); do
                       (
-                        if ssh -q -i $CLAD_CONF_DIR/.$CL.id_dsa $USER@$MEMBER "$@"; then
+                        if node_run "$@"; then
                             verbose_msg "member \"$MEMBER\" ran OK"
                         else
                             message "$MEMBER: FAILED"
@@ -306,11 +340,11 @@ else
                 message "ERROR: can't login when running in degraded mode"
                 exit 1
             fi
-            if [ -z "$2" ]; then
+            if [ -z "$TARGET" ]; then
                 message "ERROR: can't run on all clusters yet"
             else
-                cluster_login $2
-                verbose_msg "Logged into cluster \"$2\""
+                cluster_login $TARGET
+                verbose_msg "Logged into cluster \"$TARGET\""
             fi
         ;;
         logout)
@@ -318,12 +352,12 @@ else
                 message "ERROR: can't logout when running in degraded mode"
                 exit 1
             fi
-            if [ -z "$2" ]; then
+            if [ -z "$TARGET" ]; then
                 message "ERROR: can't run on all clusters yet"
             else
                 LOGOUT=1
-                cluster_logout $2
-                verbose_msg "Logged out from cluster \"$2\""
+                cluster_logout $TARGET
+                verbose_msg "Logged out from cluster \"$TARGET\""
             fi
         ;;
         *)
