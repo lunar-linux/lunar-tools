@@ -15,11 +15,7 @@
 
 CONFIG_DIR="/etc/config.d/network"
 
-inputbox()  {
-  $DIALOG --nocancel --inputbox "$1" 0 0 "$2"
-}
-
-catch_sig()  {
+catch_sig() {
   clear
   if [ -f /tmp/lnet.resolv.conf ]; then
     mv /tmp/lnet.resolv.conf /etc/resolv.conf
@@ -36,22 +32,35 @@ catch_sig()  {
   exit 1
 }
 
-confirm()  {
-  $DIALOG $2 --yesno "$1" 8 50
+msgbox() {
+  if [ -z "$3" ]; then H=10; else H=$3; fi
+  $DIALOG --title "$1" --msgbox "$2" $H 50
 }
 
+inputbox() {
+  $DIALOG --nocancel --inputbox "$1" 0 0 "$2"
+}
+
+confirm() {
+  $DIALOG $2 --yesno "$1" 8 50
+}
 
 goodbye() {
   clear
   exit  0
 }
 
+get_dev_list() {
+  /bin/ls -1 $CONFIG_DIR | sort
+}
 
 main ()
 {
-    unset PROMPT COUNTER
-    COUNTER=1
-    for DEVICE in `ls -1 $CONFIG_DIR`; do
+    unset PROMPT
+  while true; do
+    COUNTER=0
+    unset LIST
+    for DEVICE in `get_dev_list`; do
         if [ -L $CONFIG_DIR/$DEVICE ]; then
 	    continue
 	fi
@@ -63,8 +72,6 @@ main ()
 	fi
 	(( COUNTER++ ))
     done
-
-  while true; do
     COMMAND=`$DIALOG  --title "Network configuration" \
                       --ok-label "Select"            \
 		      --cancel-label "Exit"          \
@@ -75,7 +82,8 @@ main ()
                       "A"  "Add a network device"    \
                       "D"  "Setup DNS configuration" \
 		      "N"  "Setup host and domain name" \
-		      "G"  "Setup global Gateway"`
+		      "G"  "Setup global Gateway" \
+		      "M"  "Manage network devices"`
 
     if [ $? != 0 ] ; then
       return
@@ -87,6 +95,7 @@ main ()
       D)      dns_config ;;
       N)      hostname_config ;;
       G)      gateway_config ;;
+      M)      ethernet_manage_menu ;;
     esac
   done
 }
@@ -188,8 +197,99 @@ function ethernet_menu() {
 
     case  $COMMAND  in
       C)      ethernet_config $1;;
-      D)      rm "$CONFIG_DIR/$1";;
+      D)      rm -f "$CONFIG_DIR/$1";;
     esac
+}
+
+function ethernet_manage_menu() {
+  while true; do
+    unset LIST INTERFACES
+    COUNTER=0
+    for DEVICE in `get_dev_list`; do
+	INTERFACES[$COUNTER]=$DEVICE
+        if [[ "$(/sbin/ifconfig | grep $DEVICE | wc -l)" -ge "1" ]]; then
+            STATUS="[_UP_]"
+        else
+            STATUS="[DOWN]"
+        fi
+	if [ -z "$LIST" ]; then
+	  LIST="$COUNTER\n$STATUS  $DEVICE\n"
+	else
+	  LIST="$LIST$COUNTER\n$STATUS  $DEVICE\n"
+	fi
+	(( COUNTER++ ))
+    done
+
+    PROMPT="Select an interface to manage"
+    DEVICE=`$DIALOG  --title "Manage Devices"       \
+		     --ok-label "Select"            \
+		     --cancel-label "Return"        \
+		     --menu                         \
+		     $PROMPT                        \
+		     0 0 0                          \
+		     $(echo -en $LIST)`
+
+    case  $?  in
+      0)      ethernet_manage_device ${INTERFACES[$DEVICE]} ;;
+      1)      return ;;
+    esac
+  done
+}
+
+function ethernet_manage_device() {
+
+    if [ ! -z $1 ]; then
+        . $CONFIG_DIR/$1
+    fi
+
+    WIRELESS_MOD_PROMPT="You currently do not have the wireless tools installed required for wireless network devices.\n\nTo install these run the command:\n\n  'lin wireless_tools'\n\nYou will not be able to use this device until the module is installed."
+           DHCP_TIMEOUT="If your device uses DHCP, starting a device may take an excessive amount of time if no DHCP servers are available to give an IP address.\nYou may need wait for the device to timeout if this is the case."
+          ACTION_FAILED="The actions you asked to be performed have failed. You may need to check your device configuration."
+
+    if ( [ -n "$WIRELESS_MODE" ] || [ -n "$WIRELESS_KEY" ] || [ -n "$WIRELESS_RATE" ] || [ -n "$WIRELESS_ESSID" ] && ! module_installed wireless_tools ); then
+        msgbox "Warning" "$WIRELESS_MOD_PROMPT" 15
+        return
+    fi
+
+  while true; do
+    if [[ "$(/sbin/ifconfig | grep $1 | wc -l)" -ge "1" ]]; then
+        STATUS="[_UP_]"
+        TOGGLE="Stop"
+    else
+        STATUS="[DOWN]"
+        TOGGLE="Start"
+    fi
+
+    PROMPT="Device $1 is currently: $STATUS"
+    COMMAND=`$DIALOG  --title "Manage Device $1"     \
+		      --cancel-label "Return"        \
+                      --menu                         \
+		      $PROMPT                        \
+                      0 0 0                          \
+		      "S" "$TOGGLE Device"           \
+		      "R" "Restart Device"`
+
+    if [ $? != 0 ] ; then
+      return
+    fi
+
+    $DIALOG --infobox "$DHCP_TIMEOUT" 0 0
+
+    case  $COMMAND  in
+      S)      /etc/init.d/network `echo $TOGGLE | tr 'S' 's'` "$1" ;;
+      R)      /etc/init.d/network restart "$1" ;;
+    esac
+
+    if [[ "$(/sbin/ifconfig | grep $1 | wc -l)" -ge "1" ]]; then
+        T=1; else T=0
+    fi
+
+    if [[ ( "$COMMAND" == "S" && "$TOGGLE" == "Start" && "$T" != "1" ) || 
+          ( "$COMMAND" == "S" && "$TOGGLE" == "Stop" && "$T" != "0" ) || 
+          ( "$COMMAND" == "R" && "$T" == "0" )]]; then
+      msgbox "Warning" "$ACTION_FAILED" 7
+    fi
+  done
 }
 
 function ethernet_config()  {
@@ -204,14 +304,13 @@ if [ ! -z $1 ]; then
    . $CONFIG_DIR/$1
 fi;
 
-
-
          AUTO_PROMPT="Should this interface be activated on boot (for PCMCIA select NO)?"
          DHCP_PROMPT="Will you require DHCP?"
   DHCP_CLIENT_PROMPT="Which DHCP client do you want to use?"
  DHCP_OPTIONS_PROMPT="What options do you need to pass to your DHCP client (press return for none)?"
        DEVICE_PROMPT="For more then one device, use the menu for each of them, ie: eth0, eth1 etc.."
      WIRELESS_PROMPT="Is this a wireless device?"
+ WIRELESS_MOD_PROMPT="You currently do not have the wireless tools installed required for wireless network devices.\n\nTo install these run the command:\n\n  'lin wireless_tools'\n\nYou will not be able to use this device until the module is installed."
            IP_PROMPT="Enter IP Address"
       NETMASK_PROMPT="Enter Netmask"
     BROADCAST_PROMPT="Enter Broadcast IP Address"
@@ -226,7 +325,15 @@ WIRELESS_MODE_PROMPT="What mode should be used (Managed or Ad-Hoc)?"
 
 if [ -z $1 ]; then
      while [ -z $DEVICE ]; do
-         DEVICE=`inputbox  "$DEVICE_PROMPT"    "eth0"`
+         DEVICES=`get_dev_list`
+         TDEV="eth0"
+         for N in `seq 0 9`; do
+           if [ -z `echo $DEVICES | grep "eth${N}"` ]; then
+             TDEV="eth$N"
+             break
+           fi
+         done
+         DEVICE=`inputbox  "$DEVICE_PROMPT"    "$TDEV"`
      done;
 else
 	 DEVICE=$1
@@ -242,6 +349,10 @@ fi;
   fi;
 
   if confirm "$WIRELESS_PROMPT" "$WIRELESS_OPT" ; then
+          WIRELESS="Y"
+          if ! module_installed wireless_tools; then
+              msgbox "Warning" $WIRELESS_MOD_PROMPT 15
+          fi
           WIRELESS_KEY=`inputbox  "$WIRELESS_KEY_PROMPT" "$WIRELESS_KEY"`             &&
 	  if [ ! -z $WIRELESS_MODE ]; then
 	      WIRELESS_OPT2="--default-item $WIRELESS_MODE";
@@ -363,7 +474,7 @@ root_check
 export IFS="$TAB_ENTER_IFS"
 DIALOG="dialog
 --backtitle
-lnet
+Lunar Network Management Utility
 --stdout"
 
 trap catch_sig INT
