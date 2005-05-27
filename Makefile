@@ -8,7 +8,7 @@
 VERSION = 2005.2
 
 PROGRAMS = lids/lids luser/luser lnet/lnet lservices/lservices lmodules/lmodules clad/clad
-DOCS = README COPYING
+DOCS = README COPYING ChangeLog
 MANPAGES = lnet/lnet.8
 PROFILEDFILES = clad/clad.rc
 
@@ -45,6 +45,10 @@ install:
 	for DOC in ${DOCS} ; do \
 		install -m644 $${DOC} ${DOCDIR} ; \
 	done
+
+log:
+	rm -f ChangeLog
+	svnlog > ChangeLog
 
 release:
 	tar cjvf /tmp/lunar-tools-${VERSION}.tar.bz2 --exclude="*/.svn*" -C .. lunar-tools/ ; \
