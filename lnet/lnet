@@ -54,6 +54,15 @@ get_dev_list() {
   /bin/ls -1 $CONFIG_DIR | sort
 }
 
+get_dev_status() {
+  L=`/sbin/ifconfig | grep "^$1[[:space:]]" | wc -l | tr -d ' \t\n'`
+  if [[ "$L" -eq "0" ]]; then
+    echo "[DOWN]"
+  else
+    echo "[_UP_]"
+  fi
+}
+
 main ()
 {
     unset PROMPT
@@ -64,11 +73,12 @@ main ()
         if [ -L $CONFIG_DIR/$DEVICE ]; then
 	    continue
 	fi
+        STATUS=`get_dev_status $DEVICE`
 	INTERFACES[$COUNTER]=$DEVICE
 	if [ -z "$LIST" ]; then
-	  LIST="$COUNTER\nEdit device $DEVICE\n"
+	  LIST="$COUNTER\n$STATUS  Edit device $DEVICE\n"
 	else
-	  LIST="$LIST$COUNTER\nEdit device $DEVICE\n"
+	  LIST="$LIST$COUNTER\n$STATUS  Edit device $DEVICE\n"
 	fi
 	(( COUNTER++ ))
     done
@@ -181,15 +191,16 @@ function gateway_config() {
 }
 
 function ethernet_menu() {
-    PROMPT="Select an action for interface $1"
+    PROMPT="Actions for interface $1\nDevice is: `get_dev_status $1`"
     COMMAND=`$DIALOG  --title "Modify device $1"     \
                       --ok-label "Select"            \
 		      --cancel-label "Exit"          \
                       --menu                         \
 		      $PROMPT                        \
                       0 0 0                          \
-                      'C'  'Configure'               \
-                      'D'  'Delete'`
+                      'C'  'Reconfigure'             \
+                      'M'  'Manage'                  \
+		      'D'  'Delete'`
 
     if [ $? != 0 ] ; then
       return
@@ -197,7 +208,8 @@ function ethernet_menu() {
 
     case  $COMMAND  in
       C)      ethernet_config $1;;
-      D)      rm -f "$CONFIG_DIR/$1";;
+      M)      ethernet_manage_device $1;;
+      D)      if confirm "Are you sure you wish to delete $1?" "--defaultno"; then rm -f "$CONFIG_DIR/$1"; fi;;
     esac
 }
 
@@ -207,11 +219,7 @@ function ethernet_manage_menu() {
     COUNTER=0
     for DEVICE in `get_dev_list`; do
 	INTERFACES[$COUNTER]=$DEVICE
-        if [[ "$(/sbin/ifconfig | grep $DEVICE | wc -l)" -ge "1" ]]; then
-            STATUS="[_UP_]"
-        else
-            STATUS="[DOWN]"
-        fi
+        STATUS=`get_dev_status $DEVICE`
 	if [ -z "$LIST" ]; then
 	  LIST="$COUNTER\n$STATUS  $DEVICE\n"
 	else
@@ -252,15 +260,14 @@ function ethernet_manage_device() {
     fi
 
   while true; do
-    if [[ "$(/sbin/ifconfig | grep $1 | wc -l)" -ge "1" ]]; then
-        STATUS="[_UP_]"
+    STATUS=`get_dev_status $1`
+    if [[ "$STATUS" == "[_UP_]" ]]; then
         TOGGLE="Stop"
     else
-        STATUS="[DOWN]"
         TOGGLE="Start"
     fi
 
-    PROMPT="Device $1 is currently: $STATUS"
+    PROMPT="Device $1 is: $STATUS"
     COMMAND=`$DIALOG  --title "Manage Device $1"     \
 		      --cancel-label "Return"        \
                       --menu                         \
