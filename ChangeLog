@@ -1,0 +1,171 @@
+2005-05-26 21:12  striker
+
+	* lunar-tools/trunk/lnet/lnet: Yay for updates! o Added backtitle
+	  "Lunar Network Management Utility" o Fixed: No longer need to
+	  restart lnet for new device list o Added ability to
+	  start/stop/restart devices from lnet o Added warning if
+	  wireless_tools is not installed and wireless device is added
+
+2005-05-03 10:28  sofar
+
+	* lunar-tools/trunk/Makefile, lunar-tools/trunk/README: Adding a
+	  README, also adding make install code for docs (license+README)
+
+2005-05-03 09:59  sofar
+
+	* lunar-tools/trunk/clad/clad: Allow mutiple clusters to be passed
+	  with cluster1,cluster2,cluster3 etc... Also prepend all lines of
+	  stdout with the node name.
+
+2005-05-01 13:34  sofar
+
+	* lunar-tools/trunk/COPYING, lunar-tools/trunk/Makefile: Adding
+	  COPYING file for the license agreement (gplv2)
+
+2005-02-24 15:28  sofar
+
+	* lunar-tools/trunk/Makefile: and published
+
+2005-02-24 15:27  sofar
+
+	* lunar-tools/trunk/Makefile: version
+
+2005-01-18 13:57  sofar
+
+	* lunar-tools/trunk/clad/clad: typo (I'm really rusty since
+	  vacation)
+
+2005-01-18 13:55  sofar
+
+	* lunar-tools/trunk/clad/clad.rc: oops, we already had this
+
+2005-01-18 13:54  sofar
+
+	* lunar-tools/trunk/clad/clad: Adding bgrun functionality
+
+2004-11-29 20:35  sofar
+
+	* lunar-tools/trunk/Makefile: It's bumped so a new version
+
+2004-11-29 20:33  sofar
+
+	* lunar-tools/trunk/colony: Deleting forever
+
+2004-11-29 10:59  sofar
+
+	* lunar-tools/trunk/clad/clad, lunar-tools/trunk/clad/clad.rc: small
+	  adjustments to key uploading (more silent) and a completion bugfix
+
+2004-11-26 16:22  sofar
+
+	* lunar-tools/trunk/clad/clad: typo
+
+2004-11-26 15:10  sofar
+
+	* lunar-tools/trunk/Makefile: ready for release
+
+2004-11-26 15:09  sofar
+
+	* lunar-tools/trunk/Makefile, lunar-tools/trunk/clad,
+	  lunar-tools/trunk/clad/clad, lunar-tools/trunk/clad/clad.rc:
+	  Adding clad - CLuster ADmin. Written to use ssh-agent and
+	  automatically initializes hosts. Allows you to remotely admin
+	  clusters of PC's easily, very very easily I would say.
+
+2004-11-24 11:05  nestu
+
+	* lunar-tools/trunk/lmodules/lmodules: Should parse real
+	  /etc/modules, not a dummy test file, that I left behind. *sigh*
+
+2004-11-21 22:33  sofar
+
+	* lunar-tools/trunk/Makefile: Another attempt... I should not forget
+	  this
+
+2004-11-21 22:30  sofar
+
+	* lunar-tools/trunk/Makefile: Bumping version after release!
+
+2004-11-21 22:13  sofar
+
+	* lunar-tools/trunk/lnet/lnet: oops, lnet didnt even read the old
+	  gateway (foo!)
+
+2004-11-10 14:03  sofar
+
+	* lunar-tools/trunk/lnet/lnet: Added host- and domainname setting!
+
+2004-11-10 13:46  sofar
+
+	* lunar-tools/trunk/lnet/lnet: Heavily modified lnet: it is now more
+	  intuitive, has 'exit' buttons in the proper places. The main
+	  menuitems are also human readable
+
+2004-11-08 16:25  sofar
+
+	* lunar-tools/trunk/lservices/lservices: Adding quick view of
+	  current state of services
+
+2004-11-04 10:33  sofar
+
+	* lunar-tools/trunk/Makefile: Released is released
+
+2004-11-04 10:29  sofar
+
+	* lunar-tools/trunk/Makefile, lunar-tools/trunk/lmodules,
+	  lunar-tools/trunk/lmodules/lmodules: Adding lmodules
+
+2004-10-29 12:42  sofar
+
+	* lunar-tools/trunk/Makefile: This is gonna be the next version
+
+2004-10-29 12:41  sofar
+
+	* lunar-tools/trunk/Makefile, lunar-tools/trunk/lnet/lnet.8: Adding
+	  man page install code to makefile
+
+2004-10-29 12:05  sofar
+
+	* lunar-tools/trunk/Makefile, lunar-tools/trunk/colony/colony: This
+	  will be the first release anyway so let's start at .1
+
+2004-10-29 11:12  sofar
+
+	* lunar-tools/trunk/colony, lunar-tools/trunk/colony/colony: Adding
+	  colony in here... I want to remove it from lunar & theedge ASAP
+
+2004-10-29 10:52  sofar
+
+	* lunar-tools/trunk/Makefile: Renaming this to lunar-tools
+
+2004-10-29 10:36  sofar
+
+	* lunar-tools/trunk/lservices/lservices: Hmm it's 2004 already
+
+2004-10-29 10:26  sofar
+
+	* lunar-tools/trunk/Makefile: Adding lservices to Makefile
+
+2004-10-29 10:26  sofar
+
+	* lunar-tools/trunk/lservices,
+	  lunar-tools/trunk/lservices/lservices: Adding 'lservices', a
+	  simple init.d service manager using dialog
+
+2004-10-19 10:48  sofar
+
+	* lunar-tools/trunk/Makefile: Adding version number and release
+	  (tarball creation) target
+
+2004-10-19 10:39  sofar
+
+	* lunar-tools/trunk/Makefile, lunar-tools/trunk/lids,
+	  lunar-tools/trunk/lids/lids, lunar-tools/trunk/lnet,
+	  lunar-tools/trunk/lnet/lnet, lunar-tools/trunk/luser,
+	  lunar-tools/trunk/luser/luser: Initial revision
+
+2004-10-19 10:39  
+
+	* lunar-tools/branches, lunar-tools/tags, lunar-tools/trunk: New
+	  repository initialized by cvs2svn.
+
