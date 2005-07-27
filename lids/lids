@@ -179,7 +179,7 @@ check_md5sums() {
 
   for MODULE in $MODULES ; do
     verbose_msg "checking md5sums for \"$MODULE\""
-    md5sum_check $MODULE
+    plugin_module_check_md5sum $MODULE
   done
 }
 
