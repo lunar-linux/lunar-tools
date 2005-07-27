@@ -22,6 +22,8 @@
 # <permissions> may be numeric [0755] or ls -l type [-rwxrx----]
 #
 
+PERM_DIR=/var/log/lunar/permissions
+
 function freeform2numeric () {
   ((PERM=0))
   # translate -rwxrw-rw- to 0766
@@ -75,7 +77,7 @@ check_perms() {
  fi
  
  for MODULE in $MODULES ; do
-  FILE=/var/log/lunar/permissions/$MODULE-$(installed_version $MODULE)
+  FILE=$PERM_DIR/$MODULE-$(installed_version $MODULE)
   if [ -e "$FILE" ] ; then
     verbose_msg "checking permissions for \"$MODULE\""
     # echo "$FILE: processing"
@@ -135,16 +137,16 @@ get_perms() {
     MODULES="$@"
   fi
 
-  if [ ! -d /var/log/lunar/permissions ] ; then
-    mkdir -p /var/log/lunar/permissions
+  if [ ! -d $PERM_DIR ] ; then
+    mkdir -p $PERM_DIR
   fi
   
   for MODULE in $MODULES ; do
     verbose_msg "generating permission file for \"$MODULE\""
-    INFILE=/var/log/lunar/install/$MODULE-$(installed_version $MODULE)
+    INFILE=$INSTALL_LOGS/$MODULE-$(installed_version $MODULE)
     # we do not use the version in here to allow permissions to be saved
     # between upgrades
-    OUTFILE=/var/log/lunar/permissions/$MODULE
+    OUTFILE=$PERM_DIR/$MODULE-$(installed_version $MODULE)
     if [ -f $INFILE ] ; then
       while read FNAME ; do
         if [ -e "$FNAME" -a ! -L "$FNAME" ] ; then
@@ -179,7 +181,7 @@ check_md5sums() {
 
   for MODULE in $MODULES ; do
     verbose_msg "checking md5sums for \"$MODULE\""
-    plugin_module_check_md5sum $MODULE
+    md5sum_check $MODULE
   done
 }
 
