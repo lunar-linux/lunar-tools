@@ -1,6 +1,6 @@
 #!/bin/sh
 ############################################################
-# Copyright 2002 by Lunar Penguin                          #
+# Copyright 2002-2005 The Lunar Linux Team                 #
 ############################################################
 # lnet is a menu driven configurator for the networking    #
 # init script                                              #
@@ -9,8 +9,8 @@
 #                                                          #
 # Just kidding.  This is an adaption of the network config #
 # contained within the Lunar install script.               #
-#							   #
-# this code is GPL'd					   #
+#                                                          #
+# this code is GPLv2                                       #
 ############################################################
 
 CONFIG_DIR="/etc/config.d/network"
@@ -65,7 +65,7 @@ get_dev_status() {
 
 main ()
 {
-    unset PROMPT
+  unset PROMPT
   while true; do
     COUNTER=0
     unset LIST
@@ -76,9 +76,9 @@ main ()
         STATUS=`get_dev_status $DEVICE`
 	INTERFACES[$COUNTER]=$DEVICE
 	if [ -z "$LIST" ]; then
-	  LIST="$COUNTER\n$STATUS  Edit device $DEVICE\n"
+	  LIST="$COUNTER\nEdit device $DEVICE     $STATUS\n"
 	else
-	  LIST="$LIST$COUNTER\n$STATUS  Edit device $DEVICE\n"
+	  LIST="$LIST$COUNTER\nEdit device $DEVICE     $STATUS\n"
 	fi
 	(( COUNTER++ ))
     done
@@ -111,49 +111,43 @@ main ()
 }
 
 function dns_config() {
-              RESOLV="/etc/resolv.conf"
+  RESOLV="/etc/resolv.conf"
 
-    cp -p $RESOLV /tmp/lnet.resolv.conf
+  cp -p $RESOLV /tmp/lnet.resolv.conf
 
-       DOMAIN_PROMPT="Enter Primary local Domain name"
-         DNS1_PROMPT="Enter Primary DNS Server IP Address"
-         DNS2_PROMPT="Enter Secondary DNS Server IP Address"
+  DOMAIN_PROMPT="Enter Primary local Domain name"
+  DNS1_PROMPT="Enter Primary DNS Server IP Address"
+  DNS2_PROMPT="Enter Secondary DNS Server IP Address"
+  SEARCH_PROMPT="Enter (optionally) domain name search order"
 
-	DNS1="`grep nameserver $RESOLV | head -n 1 | cut -d \" \" -f2`"
-	DNS2="`grep nameserver $RESOLV | head -n 2 | tail -n 1 | cut -d \" \" -f2`"
-        DOMAIN="`grep domain $RESOLV | head -n 1 | cut -d \" \" -f2`"
+  DNS1="`grep nameserver $RESOLV | head -n 1 | cut -d \" \" -f2`"
+  DNS2="`grep nameserver $RESOLV | head -n 2 | tail -n 1 | cut -d \" \" -f2`"
+  DOMAIN="`grep domain $RESOLV | head -n 1 | cut -d \" \" -f2`"
+  SEARCH="`grep search $RESOLV | head -n 1 | cut -d \" \" -f2-`"
 
-    if [ -z $DNS1 ]; then DNS1="${IP%.*}.254"; fi;
+  DNS1=${DNS1:-${IP%.*}.254}
+  DOMAIN=${DOMAIN:-subd.com}
 
-    if [ -z $DOMAIN ]; then DOMAIN="subd.com"; fi;
+  DOMAIN=`inputbox "$DOMAIN_PROMPT" $DOMAIN`
+  DNS1=`inputbox "$DNS1_PROMPT" $DNS1`
 
-    DOMAIN=`inputbox  "$DOMAIN_PROMPT"      $DOMAIN`
-
-    DNS1=`inputbox  "$DNS1_PROMPT"          $DNS1`
-
-    if [ -z $DNS2 ]; then 
-        if [ -z $DNS1 ]; then
-            let DNS2="";
-        else 
-            let N_DNS=${DNS1##*.}+1; 
-            DNS2="${DNS1%.*}.$N_DNS";
-        fi;
-    fi;
-    DNS2=`inputbox  "$DNS2_PROMPT"          "$DNS2"` 
-
-    
-    if [ ! -z $DNS1 ]; then
-        echo   "domain $DOMAIN"                  >   $RESOLV
-        echo   "nameserver $DNS1"                >>  $RESOLV
-	if [ ! -z $DNS2 ]; then
-            echo   "nameserver $DNS2"               >>   $RESOLV
-	fi;
+  if [ -z $DNS2 ]; then
+    if [ -z $DNS1 ]; then
+      DNS2=""
     else
-	if [ ! -z $DNS2 ]; then
-            echo   "domain $DOMAIN"                  >   $RESOLV
-            echo   "nameserver  $DNS2"               >>  $RESOLV
-	fi;
-    fi;
+      N_DNS=$((${DNS1##*.}+1))
+      DNS2="${DNS1%.*}.$N_DNS"
+    fi
+  fi
+  DNS2=`inputbox "$DNS2_PROMPT" "$DNS2"`
+  SEARCH=`inputbox "$SEARCH_PROMPT" $SEARCH`
+
+  (
+    [ -z "$DOMAIN" ] || echo "domain $DOMAIN"
+    [ -z "$DNS1" ]   || echo "nameserver $DNS1"
+    [ -z "$DNS2" ]   || echo "nameserver $DNS2"
+    [ -z "$SEARCH" ] || echo "search $SEARCH"
+  ) > $RESOLV
 }
 
 function hostname_config()
@@ -221,9 +215,9 @@ function ethernet_manage_menu() {
 	INTERFACES[$COUNTER]=$DEVICE
         STATUS=`get_dev_status $DEVICE`
 	if [ -z "$LIST" ]; then
-	  LIST="$COUNTER\n$STATUS  $DEVICE\n"
+	  LIST="$COUNTER\n$DEVICE     $STATUS\n"
 	else
-	  LIST="$LIST$COUNTER\n$STATUS  $DEVICE\n"
+	  LIST="$LIST$COUNTER\n$DEVICE     $STATUS\n"
 	fi
 	(( COUNTER++ ))
     done
@@ -251,8 +245,8 @@ function ethernet_manage_device() {
     fi
 
     WIRELESS_MOD_PROMPT="You currently do not have the wireless tools installed required for wireless network devices.\n\nTo install these run the command:\n\n  'lin wireless_tools'\n\nYou will not be able to use this device until the module is installed."
-           DHCP_TIMEOUT="If your device uses DHCP, starting a device may take an excessive amount of time if no DHCP servers are available to give an IP address.\nYou may need wait for the device to timeout if this is the case."
-          ACTION_FAILED="The actions you asked to be performed have failed. You may need to check your device configuration."
+    DHCP_TIMEOUT="If your device uses DHCP, starting a device may take an excessive amount of time if no DHCP servers are available to give an IP address.\nYou may need wait for the device to timeout if this is the case."
+    ACTION_FAILED="The actions you asked to be performed have failed. You may need to check your device configuration."
 
     if ( [ -n "$WIRELESS_MODE" ] || [ -n "$WIRELESS_KEY" ] || [ -n "$WIRELESS_RATE" ] || [ -n "$WIRELESS_ESSID" ] && ! module_installed wireless_tools ); then
         msgbox "Warning" "$WIRELESS_MOD_PROMPT" 15
