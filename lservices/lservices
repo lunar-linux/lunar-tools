@@ -143,8 +143,9 @@ main_menu() {
 
 
 . /etc/lunar/config
-  
+
 export IFS="$TAB_ENTER_IFS"
+export LC_ALL=C
 
 DIALOG="dialog
 --backtitle
