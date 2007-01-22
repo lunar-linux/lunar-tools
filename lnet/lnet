@@ -323,6 +323,7 @@ WIRELESS_RATE_PROMPT="What rate should be used (e.g. 11M or press return for aut
 WIRELESS_MODE_PROMPT="What mode should be used (Managed or Ad-Hoc)?"
  WIRELESS_ESS_PROMPT="What is the ESSID or network name (return for auto)?"
         ROUTE_PROMPT="If needed add route declarations. Leave blank if you don't need any. The path to 'route' itself will be added automatcally and you also don't need to specify 'route' itself. 'add' entries will be replace with 'del' entries and undone in the reverse order when the interface is shutdown."
+ DHCP_MODULE_MESSAGE="The DHCP client you have chosen is not installed. Before your device will work, you will need to install the following module: "
 
 if [ -z $1 ]; then
      while [ -z $DEVICE ]; do
@@ -387,6 +388,17 @@ fi;
                              "dhcpcd"    ""                  \
                              "dhclient"  ""                  \
                              "udhcpc"    "" `                &&
+
+       case $DHCP_CLIENT in
+          dhclient)
+             if ! module_installed dhcp; then
+                msgbox "Warning" "$DHCP_MODULE_MESSAGE dhcp" 10
+             fi ;;
+          udhcpc)
+             if ! module_installed udhcp; then
+                msgbox "Warning" "$DHCP_MODULE_MESSAGE udhcp" 10
+             fi ;;
+       esac
 
        DHCP_OPTIONS=`inputbox  "$DHCP_OPTIONS_PROMPT" "$DHCP_OPTIONS"`  
        ADDRESS=dhcp
