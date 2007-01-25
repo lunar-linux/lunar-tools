@@ -7,7 +7,8 @@
 # i.e. 2004.9 2004.10 2004.11 ...
 VERSION = 2006.1
 
-PROGRAMS = lids/lids luser/luser lnet/lnet lservices/lservices lmodules/lmodules clad/clad
+PROGRAMS = lids/lids luser/luser lnet/lnet lservices/lservices \
+	lmodules/lmodules clad/clad
 DOCS = README COPYING ChangeLog
 MANPAGES = lnet/lnet.8
 PROFILEDFILES = clad/clad.rc
@@ -20,30 +21,34 @@ PROFILEDDIR = /etc/profile.d/
 
 all:
 install:
+	if [ ! -d "/sbin" ] ; then \
+	    mkdir -p "/sbin" ; \
+	fi
+	install -m755 installkernel/installkernel /sbin/
 	if [ ! -d "${SBINDIR}" ] ; then \
 	    mkdir -p ${SBINDIR} ; \
-	fi ; \
+	fi
 	for PROGRAM in ${PROGRAMS} ; do \
-	    install -m755 $${PROGRAM} ${SBINDIR} ; \
-	done ; \
+	    install -m755 $${PROGRAM} ${SBINDIR}/ ; \
+	done
 	for MANPAGE in ${MANPAGES} ; do \
 	    EXT=`echo "$${MANPAGE:(($${#MANPAGE}-1)):1}"` ; \
 	    if [ ! -d "${MANDIR}man$$EXT" ] ; then \
 	        mkdir -p ${MANDIR}man$$EXT ; \
 	    fi ; \
 	    install -m644 $${MANPAGE} ${MANDIR}man$$EXT/ ; \
-	done ; \
+	done
 	if [ ! -d "${PROFILEDDIR}" ] ; then \
 	    mkdir -p ${PROFILEDDIR} ; \
-	fi ; \
+	fi
 	for RCFILE in ${PROFILEDFILES} ; do \
-	    install -m644 $${RCFILE} ${PROFILEDDIR} ; \
-	done ; \
+	    install -m644 $${RCFILE} ${PROFILEDDIR}/ ; \
+	done
 	if [ ! -d "${DOCDIR}" ] ; then \
 		mkdir -p ${DOCDIR} ; \
-	fi ; \
+	fi
 	for DOC in ${DOCS} ; do \
-		install -m644 $${DOC} ${DOCDIR} ; \
+		install -m644 $${DOC} ${DOCDIR}/ ; \
 	done
 
 log:
