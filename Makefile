@@ -8,7 +8,7 @@
 VERSION = 2006.1
 
 PROGRAMS = lids/lids luser/luser lnet/lnet lservices/lservices \
-	lmodules/lmodules clad/clad
+	lmodules/lmodules clad/clad ltime/ltime
 DOCS = README COPYING ChangeLog
 MANPAGES = lnet/lnet.8
 PROFILEDFILES = clad/clad.rc

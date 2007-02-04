@@ -1,3 +1,9 @@
+2007-02-04 02:18  moe
+
+	* lunar-tools/trunk/ltime/ltime, lunar-tools/trunk/Makefile
+	  lunar-tools/trunk/README, lunar-tools/trunk/ChangeLog:
+	  Added ltime. Manage your timezones with lunar :-)	  
+
 2005-05-26 21:12  striker
 
 	* lunar-tools/trunk/lnet/lnet: Yay for updates! o Added backtitle

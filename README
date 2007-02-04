@@ -41,6 +41,13 @@ lservices -- lunar startup services
 	services. lservices also stores your choices for lunar which will
 	remember your choices.
 
+ltime -- lunar timezone management utility
+
+	ltime lets you change the timezone you selected during the
+	installation process. It makes use of the timezone date in
+	/usr/share/zoneinfo. You can also change the whether you
+	storing your time in GMT or localtime.
+
 luser -- lunar user admin tool
 
 	luser is a ncurses user administration tool that adds easy methods
