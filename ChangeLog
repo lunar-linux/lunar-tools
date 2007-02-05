@@ -1,8 +1,68 @@
-2007-02-04 02:18  moe
+2007-02-04 01:20  moe
 
-	* lunar-tools/trunk/ltime/ltime, lunar-tools/trunk/Makefile
-	  lunar-tools/trunk/README, lunar-tools/trunk/ChangeLog:
-	  Added ltime. Manage your timezones with lunar :-)	  
+	* lunar-tools/trunk/ChangeLog, lunar-tools/trunk/Makefile,
+	  lunar-tools/trunk/README, lunar-tools/trunk/ltime,
+	  lunar-tools/trunk/ltime/ltime: Add ltime. Manage your timezone
+	  with lunar :-)
+
+2007-01-25 23:18  sofar
+
+	* lunar-tools/trunk/Makefile, lunar-tools/trunk/installkernel,
+	  lunar-tools/trunk/installkernel/installkernel: Add installkernel
+	  binary!
+
+2007-01-22 16:16  striker
+
+	* lunar-tools/trunk/lnet/lnet: Adding message to inform user that
+	  dhcp module is not installed.
+
+2006-04-19 20:13  sofar
+
+	* lunar-tools/trunk/Makefile: New version
+
+2006-04-19 20:13  sofar
+
+	* lunar-tools/trunk/lservices/lservices: #79, #85
+
+2005-08-13 14:48  sofar
+
+	* lunar-tools/trunk/lnet/lnet: Cleaned up code, added DNS 'search'
+	  keyword and refined resolv.conf writing.
+
+2005-07-27 10:32  sofar
+
+	* lunar-tools/trunk/lids/lids: Fixing proper permission file paths
+	  (now include module version numbers).
+
+2005-07-27 09:41  sofar
+
+	* lunar-tools/trunk/Makefile: Tagging new version for later.
+
+2005-07-27 09:39  sofar
+
+	* lunar-tools/trunk/lids/lids: This needs to use the plugin code
+	  now.
+
+2005-05-27 21:57  striker
+
+	* lunar-tools/trunk/lnet/lnet: Device status on main menu, manage
+	  devices from edit menu, confirm delete, and minor tweaks.
+
+2005-05-27 09:25  sofar
+
+	* lunar-tools/trunk/Makefile: Bumping the version for the new
+	  version. Also now we release this by doing a 'make release' from
+	  within the tags/module-version directory so the Makefile target
+	  needs an adjustment.
+
+2005-05-27 08:08  sofar
+
+	* lunar-tools/trunk/Makefile: Adding a 'log' target that works on
+	  espresso.
+
+2005-05-27 08:02  sofar
+
+	* lunar-tools/trunk/ChangeLog: Adding a ChangeLog file.
 
 2005-05-26 21:12  striker
 
