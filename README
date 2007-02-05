@@ -55,3 +55,9 @@ luser -- lunar user admin tool
 	tasks such as locking users, delete them, modify groups and with
 	great ease.
 
+installkernel -- kernel and module installation script
+
+	installkernel allows you to 'make install' from any 2.6 kernel tree.
+	Lunar will update your bootloader for you and install all kernel
+	modules and kernel image into the right place.
+
