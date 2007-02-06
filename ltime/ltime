@@ -83,6 +83,6 @@ Lunar Timezone Management Utility
 --stdout"
 
 root_check;
-environ_check;
+enviro_check;
 timezone_menu;
 clear;
