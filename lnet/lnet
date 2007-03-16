@@ -295,34 +295,14 @@ function ethernet_manage_device() {
 
 function ethernet_config()  {
 # unset all variables
-unset WIRELESS DEVICE AUTO MODULE  MODULE_OPTIONS ADDRESS
-unset NETMASK BROADCAST GATEWAY DHCP_CLIENT DHCP_OPTIONS AUTO_OPT
-unset WIRELESS_KEY WIRELESS_RATE WIRELESS_MODE WIRELESS_ESSID DHCP
-unset DHCP_OPT WIRELESS_OPT WIRELESS_OPT2 IP
+unset WIRELESS DEVICE AUTO MODULE MODULE_OPTIONS ADDRESS MANAGER
+unset NETMASK BROADCAST GATEWAY DHCP_CLIENT DHCP_OPTIONS
+unset WIRELESS_KEY WIRELESS_RATE WIRELESS_MODE WIRELESS_ESSID
 
-
-if [ ! -z $1 ]; then
+if [ -n "$1" ]; then
    . $CONFIG_DIR/$1
-fi;
+fi
 
-         AUTO_PROMPT="Should this interface be activated on boot (for PCMCIA select NO)?"
-         DHCP_PROMPT="Will you require DHCP?"
-  DHCP_CLIENT_PROMPT="Which DHCP client do you want to use?"
- DHCP_OPTIONS_PROMPT="What options do you need to pass to your DHCP client (press return for none)?"
-       DEVICE_PROMPT="For more then one device, use the menu for each of them, ie: eth0, eth1 etc.."
-     WIRELESS_PROMPT="Is this a wireless device?"
- WIRELESS_MOD_PROMPT="You currently do not have the wireless tools installed required for wireless network devices.\n\nTo install these run the command:\n\n  'lin wireless_tools'\n\nYou will not be able to use this device until the module is installed."
-           IP_PROMPT="Enter IP Address"
-      NETMASK_PROMPT="Enter Netmask"
-    BROADCAST_PROMPT="Enter Broadcast IP Address"
-  IFCONF_OPTS_PROMPT="Enter extra options passed to ifconfig"
-       MODULE_PROMPT="Optionally, enter the NIC kernel module to load, but leave off the .o"
-  MODULE_OPTS_PROMPT="Optionally, enter the NIC module parameters"
- WIRELESS_KEY_PROMPT="What is the encryption key used? prefix with s: if ASCII, press return if NONE"
-WIRELESS_RATE_PROMPT="What rate should be used (e.g. 11M or press return for auto)?"
-WIRELESS_MODE_PROMPT="What mode should be used (Managed or Ad-Hoc)?"
- WIRELESS_ESS_PROMPT="What is the ESSID or network name (return for auto)?"
-        ROUTE_PROMPT="If needed add route declarations. Leave blank if you don't need any. The path to 'route' itself will be added automatcally and you also don't need to specify 'route' itself. 'add' entries will be replace with 'del' entries and undone in the reverse order when the interface is shutdown."
  DHCP_MODULE_MESSAGE="The DHCP client you have chosen is not installed. Before your device will work, you will need to install the following module: "
 
 if [ -z $1 ]; then
@@ -335,7 +315,7 @@ if [ -z $1 ]; then
              break
            fi
          done
-         DEVICE=`inputbox  "$DEVICE_PROMPT"    "$TDEV"`
+         DEVICE=`inputbox "For more then one device, use the menu for each of them, ie: eth0, eth1 etc.." "$TDEV"`
      done
 else
 	 DEVICE=$1
