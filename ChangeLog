@@ -1,3 +1,47 @@
+2007-03-16 21:05  sofar
+
+	* lunar-tools/trunk/Makefile: New release
+
+2007-03-16 17:49  sofar
+
+	* lunar-tools/trunk/lnet/lnet: Forgot a " here which mucked it up
+	  (test it!)
+
+2007-03-16 17:42  sofar
+
+	* lunar-tools/trunk/lnet/lnet: By default, set DHCP_OPTIONS to pass
+	  -h `hostname` since that's what all the cool kids do ;)
+
+2007-03-16 17:39  sofar
+
+	* lunar-tools/trunk/lnet/lnet: More cleanups to this junk :)
+
+2007-03-16 16:40  sofar
+
+	* lunar-tools/trunk/lnet/lnet: Allow ifplugd to see modified user
+	  preference for dhcp client+options (needs change to ifplugd.action
+	  script still pending)
+
+2007-03-16 16:15  sofar
+
+	* lunar-tools/trunk/lnet/lnet: Provide a single menu to display/edit
+	  all network settings of an interface Add support to select a
+	  "manager". I currently have "ifplugd" and "wpa_supplicant+ifplugd"
+	  working OOTB with a modified init.d network script.
+
+2007-02-06 14:07  moe
+
+	* lunar-tools/trunk/ltime/ltime: Damn typo!
+
+2007-02-05 03:00  sofar
+
+	* lunar-tools/trunk/ChangeLog: Updated
+
+2007-02-05 02:59  sofar
+
+	* lunar-tools/trunk/Makefile, lunar-tools/trunk/README: updated
+	  verison, readme
+
 2007-02-04 01:20  moe
 
 	* lunar-tools/trunk/ChangeLog, lunar-tools/trunk/Makefile,
