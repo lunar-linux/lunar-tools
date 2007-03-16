@@ -366,12 +366,14 @@ while true ; do
 				    fi
 					echo "D"
 					echo "Dhcp enabled?           [$(echo $ADDRESS | grep -qi dhcp && echo "Y" || echo "N")]"
-				    if echo $ADDRESS | grep -qi dhcp ; then
+				  fi
+				  if [ "$MANAGER" != "manual" ] ||  echo $ADDRESS | grep -qi dhcp ; then
 					echo "C"
 					echo "Dhcp client             [${DHCP_CLIENT:-dhcpcd}]"
 					echo "O"
 					echo "Dhcp options            [${DHCP_OPTIONS:-}]"
-				    else
+				  fi
+				  if !echo ${ADDRESS:-dhcp} | grep -qi dhcp ; then
 					echo "I"
 					echo "IP Address              [${ADDRESS:-10.0.0.1}]"
 					echo "N"
@@ -380,9 +382,8 @@ while true ; do
 					echo "Broadcast               [${BROADCAST:-10.0.0.255}]"
 					echo "F"
 					echo "Ifconfig options        [${IFCONF_OPTS:-}]"
-				    fi
-				 fi)`
-
+				  fi
+				 )`
 
 	if [ $? != 0 ]; then
 		return
@@ -403,6 +404,12 @@ while true ; do
 				 "manual" "do not use ifplugd or wpa_supplicant" \
 				 "ifplugd" "use ifplugd" \
 				 "wpa_supplicant" "Use both ifplugd and wpa_supplicant"`
+		if [ "$MANAGER" == "wpa_supplicant" ] ; then
+			WIRELESS=Y
+		fi
+		if [ "$MANAGER" != "manual" ] ; then
+			ADDRESS=dhcp
+		fi
 		;;
 	W)	if [ "$WIRELESS" == "Y" ]; then
 			WIRELESS=N
