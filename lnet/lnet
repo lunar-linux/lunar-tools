@@ -336,140 +336,152 @@ if [ -z $1 ]; then
            fi
          done
          DEVICE=`inputbox  "$DEVICE_PROMPT"    "$TDEV"`
-     done;
+     done
 else
 	 DEVICE=$1
-fi;
+fi
 
-         MODULE=`inputbox  "$MODULE_PROMPT"    "$MODULE"`            &&
- MODULE_OPTIONS=`inputbox  "$MODULE_OPTS_PROMPT" "$MODULE_OPTIONS"`  &&
+while true ; do
+	DEFAULT=${CHOICE:-}
+	CHOICE=`$DIALOG --title "Networking configuration: $1" \
+				 --ok-label "Select" \
+				 --cancel-label "Close" \
+				 --default-item "$DEFAULT" \
+				 --menu "" 0 0 0 \
+				 "A" "Automatically start?    [${AUTO:-Y}]" \
+				 "L" "kernel module to Load   [${MODULE:-}]" \
+				 "Z" "Use manager?            [${MANAGER:-manual}]" \
+				 $(if [ "${MANAGER:-manual}" == "manual" ] ; then
+					echo "W"
+					echo "Wireless device?        [${WIRELESS:-N}]"
+				    if [ "$WIRELESS" == "Y" ]; then
+					echo "M"
+					echo "Mode                    [${WIRELESS_MODE:-Managed}]"
+					echo "K"
+					echo "Key                     [${WIRELESS_KEY:-}]"
+					echo "R"
+					echo "Rate                    [${WIRELESS_RATE:-auto}]"
+					echo "E"
+					echo "Essid                   [${WIRELESS_ESSID:-default}]"
+				    fi
+					echo "D"
+					echo "Dhcp enabled?           [$(echo $ADDRESS | grep -qi dhcp && echo "Y" || echo "N")]"
+				    if echo $ADDRESS | grep -qi dhcp ; then
+					echo "C"
+					echo "Dhcp client             [${DHCP_CLIENT:-dhcpcd}]"
+					echo "O"
+					echo "Dhcp options            [${DHCP_OPTIONS:-}]"
+				    else
+					echo "I"
+					echo "IP Address              [${ADDRESS:-10.0.0.1}]"
+					echo "N"
+					echo "Netmask                 [${NETMASK:-255.255.255.0}]"
+					echo "B"
+					echo "Broadcast               [${BROADCAST:-10.0.0.255}]"
+					echo "F"
+					echo "Ifconfig options        [${IFCONF_OPTS:-}]"
+				    fi
+				 fi)`
 
-  if ( [ ! -z $WIRELESS_MODE ] || [ ! -z $WIRELESS_KEY ] || [ ! -z $WIRELESS_RATE ] || [ ! -z $WIRELESS_ESSID ] ); then
-       WIRELESS_OPT=""
-  else
-       WIRELESS_OPT="--defaultno"
-  fi;
 
-  if confirm "$WIRELESS_PROMPT" "$WIRELESS_OPT" ; then
-          WIRELESS="Y"
-          if ! module_installed wireless_tools; then
-              msgbox "Warning" $WIRELESS_MOD_PROMPT 15
-          fi
-          WIRELESS_KEY=`inputbox  "$WIRELESS_KEY_PROMPT" "$WIRELESS_KEY"`             &&
-	  if [ ! -z $WIRELESS_MODE ]; then
-	      WIRELESS_OPT2="--default-item $WIRELESS_MODE";
-	  fi;
+	if [ $? != 0 ]; then
+		return
+	fi
 
-          WIRELESS_MODE=`$DIALOG   $WIRELESS_OPT2 --no-cancel --title  "Wireless Modes"           \
-                                   --menu                              \
-                                   "$WIRELESS_MODE_PROMPT"             \
-                                   0 0 0                               \
-                                   "Managed"  ""                       \
-                                   "Ad-Hoc"   ""  `                    &&
+	case $CHOICE in
+	A)	if [ "$AUTO" == "Y" ]; then
+			AUTO=N
+		else
+			AUTO=Y
+		fi
+		;;
+	L)	MODULE=`inputbox "Enter optional kernel module to load" "$MODULE"`
+		;;
+	Z)	MANAGER=`$DIALOG --no-cancel --title "Select a network configuration method" \
+				 --default-item "${MANAGER:-ifplugd}" \
+				 --menu "" 0 0 0 \
+				 "manual" "do not use ifplugd or wpa_supplicant" \
+				 "ifplugd" "use ifplugd" \
+				 "wpa_supplicant" "Use both ifplugd and wpa_supplicant"`
+		;;
+	W)	if [ "$WIRELESS" == "Y" ]; then
+			WIRELESS=N
+		else
+			WIRELESS=Y
+		fi
+		;;
+	M)	WIRELESS_MODE=`$DIALOG --no-cancel --title  "Wireless Modes" \
+				       --default-item "${WIRELESS_MODE:-Managed}" \
+				       --menu "" 0 0 0 \
+				       "Managed" "" \
+				       "Ad-Hoc"  ""`
+		;;
 
-          WIRELESS_RATE=`inputbox  "$WIRELESS_RATE_PROMPT" "$WIRELESS_RATE"`            &&
-         WIRELESS_ESSID=`inputbox  "$WIRELESS_ESS_PROMPT" "$WIRELESS_ESSID"` 
-  else
-         unset WIRELESS_KEY WIRELESS_MODE WIRELESS_RATE WIRELESS_ESSID
-  fi;
+	K)	WIRELESS_KEY=`inputbox "Enter WEP 64/128 bit key" "$WIRELESS_KEY"`
+		;;
+	R)	WIRELESS_RATE=`inputbox "Enter wireless rate" "$WIRELESS_RATE"`
+		;;
+	E)	WIRELESS_ESSID=`inputbox "Enter ESSID of the wireless network" "$WIRELESS_ESSID"`
+		;;
+	D)	if [ "$ADDRESS" == "dhcp" ]; then
+			unset ADDRESS
+		else
+			ADDRESS=dhcp
+		fi
+		;;
+	C)	DHCP_CLIENT=`$DIALOG --no-cancel --title "Select a DHCP client" \
+				     --default-item "${DHCP_CLIENT:-dhcpcd}" \
+				     --menu "" 0 0 0 \
+				     "dhcpcd" "" \
+				     "dhclient" "" \
+				     "udhcpc" ""`
+		case $DHCP_CLIENT in
+		dhclient) if ! module_installed dhcp; then
+				msgbox "Warning" "$DHCP_MODULE_MESSAGE dhcp" 10
+			fi ;;
+		udhcpc) if ! module_installed udhcp; then
+				msgbox "Warning" "$DHCP_MODULE_MESSAGE udhcp" 10
+			fi ;;
+		esac
+		;;
+	O)	DHCP_OPTIONS=`inputbox "Enter extra options passed to $DHCP_CLIENT" "$DHCP_OPTIONS"`
+		;;
+	I)	ADDRESS=`inputbox "Enter IP address" "$ADDRESS"`
+		;;
+	N)	NETMASK=`inputbox "Enter netmask" "$NETMASK"`
+		;;
+	B)	BROADCAST=`inputbox "Enter broadcast address" "$BROADCAST"`
+		;;
+	F)	IFCONF_OPTS=`inputbox "Enter extra options passed to ifconfig" "$IFCONF_OPTS"`
+		;;
+	esac
 
-  case $ADDRESS in
-     [dD][hH][cC][pP]) DHCP_OPT="" ;;
-     *) DHCP_OPT="--defaultno" ;;
-  esac;
+	# save the config
+	cp -p $CONFIG_DIR/$DEVICE /tmp/lnet.$DEVICE
+	cat > $CONFIG_DIR/$DEVICE << EOF
+#
+# configuration for "$DEVICE"
+# automatically generated by lnet - do not edit, run 'lnet' instead
+# -- `date`
+#
+AUTO="$AUTO"
+MODULE="$MODULE"
+MODULE_OPTIONS="$MODULE_OPTIONS"
 
-  if  confirm  "$DHCP_PROMPT" "$DHCP_OPT" ;  then
-       unset ADDRESS NETMASK GATEWAY BROADCAST
+MANAGER="$MANAGER"
 
-       DHCP_CLIENT=`$DIALOG  --no-cancel --title  "$TITLE"   \
-                             --menu                          \
-                             "$DHCP_CLIENT_PROMPT"           \
-                             0 0 0                           \
-                             "dhcpcd"    ""                  \
-                             "dhclient"  ""                  \
-                             "udhcpc"    "" `                &&
-
-       case $DHCP_CLIENT in
-          dhclient)
-             if ! module_installed dhcp; then
-                msgbox "Warning" "$DHCP_MODULE_MESSAGE dhcp" 10
-             fi ;;
-          udhcpc)
-             if ! module_installed udhcp; then
-                msgbox "Warning" "$DHCP_MODULE_MESSAGE udhcp" 10
-             fi ;;
-       esac
-
-       DHCP_OPTIONS=`inputbox  "$DHCP_OPTIONS_PROMPT" "$DHCP_OPTIONS"`  
-       ADDRESS=dhcp
-  else
-  		unset DHCP_CLIENT DHCP_OPTIONS
-  		if [ -z $DHCP_OPT ]; then ADDRESS="10.0.0.1"; fi;
-  		if [ -z $ADDRESS ]; then ADDRESS="10.0.0.1"; fi;
-	while [ -z $IP ]; do
-              IP=`inputbox  "$IP_PROMPT"            "$ADDRESS"`           
-        done;
-	        if [ -z $NETMASK ]; then NETMASK="255.255.255.0"; fi;
-         NETMASK=`inputbox  "$NETMASK_PROMPT"       "$NETMASK"`      
-	        if [ -z $BROADCAST ]; then BROADCAST="${IP%.*}.255"; fi;
-       BROADCAST=`inputbox  "$BROADCAST_PROMPT"     "$BROADCAST"`       
-                if [ -z $GATEWAY ]; then GATEWAY="${IP%.*}.1"; fi;
-     IFCONF_OPTS=`inputbox  "$IFCONF_OPTS_PROMPT"   "$IFCONF_OPTS"`
-
-         ADDRESS=$IP
-
-  fi;
-
-  # start by default?
-  case $AUTO in
-    [^yY])
-      AUTO_OPT="--defaultno"
-    ;;
-  esac
-   
-  if confirm "$AUTO_PROMPT" $AUTO_OPT; then 
-    AUTO="Y" 
-  else
-    AUTO="N"
-  fi
-
-  # add routing options?
-  ROUTE_1=`inputbox "$ROUTE_PROMPT" "$ROUTE_1"`
-  if [ -n "$ROUTE_1" ] ; then
-    ROUTE_2=`inputbox "$ROUTE_PROMPT" "$ROUTE_2"`
-    if [ -n "$ROUTE_2" ] ; then
-      ROUTE_3=`inputbox "$ROUTE_PROMPT" "$ROUTE_3"`
-      if [ -n "$ROUTE_3" ] ; then
-        ROUTE_4=`inputbox "$ROUTE_PROMPT" "$ROUTE_4"`
-      else
-        unset ROUTE_4
-      fi
-    else
-      unset ROUTE_3 ROUTE_4
-    fi
-  else
-    unset ROUTE_2 ROUTE_3 ROUTE_4
-  fi
-
-  OUT_TO=$CONFIG_DIR/$DEVICE
-  cp -p $OUT_TO /tmp/lnet.$DEVICE
-  cat > $OUT_TO << EOF
-AUTO=$AUTO
-MODULE=$MODULE
-MODULE_OPTIONS=$MODULE_OPTIONS
-
-WIRELESS=$WIRELESS
-WIRELESS_KEY=$WIRELESS_KEY
-WIRELESS_RATE=$WIRELESS_RATE
+WIRELESS="$WIRELESS"
+WIRELESS_KEY="$WIRELESS_KEY"
+WIRELESS_RATE="$WIRELESS_RATE
 WIRELESS_MODE="$WIRELESS_MODE"
 WIRELESS_ESSID="$WIRELESS_ESSID"
 
-ADDRESS=$ADDRESS
-NETMASK=$NETMASK
-BROADCAST=$BROADCAST
+ADDRESS="$ADDRESS"
+NETMASK="$NETMASK"
+BROADCAST="$BROADCAST"
 IFCONF_OPTS="$IFCONF_OPTS"
 
-DHCP_CLIENT=$DHCP_CLIENT
+DHCP_CLIENT="$DHCP_CLIENT"
 DHCP_OPTIONS="$DHCP_OPTIONS"
 
 ROUTE_1="$ROUTE_1"
@@ -478,6 +490,7 @@ ROUTE_3="$ROUTE_3"
 ROUTE_4="$ROUTE_4"
 EOF
 
+done
 }
 
 . /etc/lunar/config
