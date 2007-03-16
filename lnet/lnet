@@ -351,7 +351,7 @@ while true ; do
 					echo "C"
 					echo "Dhcp client             [${DHCP_CLIENT:-dhcpcd}]"
 					echo "O"
-					echo "Dhcp options            [${DHCP_OPTIONS:-}]"
+					echo "Dhcp options            [${DHCP_OPTIONS:--h \`hostname\`}]"
 				  fi
 				  if !echo ${ADDRESS:-dhcp} | grep -qi dhcp ; then
 					echo "I"
@@ -431,7 +431,7 @@ while true ; do
 			fi ;;
 		esac
 		;;
-	O)	DHCP_OPTIONS=`inputbox "Enter extra options passed to $DHCP_CLIENT" "$DHCP_OPTIONS"`
+	O)	DHCP_OPTIONS=`inputbox "Enter extra options passed to $DHCP_CLIENT" "${DHCP_OPTIONS:--h \`hostname\`}"`
 		;;
 	I)	ADDRESS=`inputbox "Enter IP address" "$ADDRESS"`
 		;;
