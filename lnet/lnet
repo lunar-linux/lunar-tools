@@ -347,13 +347,13 @@ while true ; do
 					echo "D"
 					echo "Dhcp enabled?           [$(echo $ADDRESS | grep -qi dhcp && echo "Y" || echo "N")]"
 				  fi
-				  if [ "$MANAGER" != "manual" ] ||  echo $ADDRESS | grep -qi dhcp ; then
+				  if [ "$MANAGER" != "manual" ] || [ "$ADDRESS" == "dhcp" ] ; then
 					echo "C"
 					echo "Dhcp client             [${DHCP_CLIENT:-dhcpcd}]"
 					echo "O"
 					echo "Dhcp options            [${DHCP_OPTIONS:--h \`hostname\`}]"
 				  fi
-				  if !echo ${ADDRESS:-dhcp} | grep -qi dhcp ; then
+				  if [ "$ADDRESS" != "dhcp" ] ; then
 					echo "I"
 					echo "IP Address              [${ADDRESS:-10.0.0.1}]"
 					echo "N"
