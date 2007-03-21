@@ -5,7 +5,7 @@
 # versioning scheme: since this is mostly a linear process if incremental
 # but we do not update that often we use year.number as version number
 # i.e. 2004.9 2004.10 2004.11 ...
-VERSION = 2007.3
+VERSION = 2007.4
 
 PROGRAMS = lids/lids luser/luser lnet/lnet lservices/lservices \
 	lmodules/lmodules clad/clad ltime/ltime
