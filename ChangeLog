@@ -1,3 +1,13 @@
+2007-03-19 20:52  sofar
+
+	* lunar-tools/trunk/lnet/lnet: This was hosed - ADDRESS="" if you
+	  turn dhcp off, so don't default to ${ADDRESS:-dhcp} in tests here.
+
+2007-03-18 20:41  sofar
+
+	* lunar-tools/trunk/ChangeLog, lunar-tools/trunk/Makefile: Bugfix:
+	  lnet needs #!/bin/bash
+
 2007-03-18 20:28  sofar
 
 	* lunar-tools/trunk/lnet/lnet: Moo
