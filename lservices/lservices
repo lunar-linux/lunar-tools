@@ -103,7 +103,7 @@ service_menu() {(
 list_initd_services() {
  (
   unset IFS
-  for SERVICE in $(chkconfig --list | grep '0:' | cut -f1 | sort) ; do
+  for SERVICE in $(find /etc/init.d/ -type f -exec basename {} \; | sort) ; do
     if grep -q '^# chkconfig: ' /etc/init.d/$SERVICE ; then
       DESCRIPTION="$(grep '^# description: ' /etc/init.d/$SERVICE | sed -e 's/^# description: //g' -e 's/\\/.../' -e 's/\t/ /g')"
       if service_is_enabled $SERVICE ; then
