@@ -55,7 +55,7 @@ list_user_data() {
   DSC3=$(echo $USTRING,,,, | cut -d: -f5 | awk -F, '{print $3}')
   DSC4=$(echo $USTRING,,,, | cut -d: -f5 | awk -F, '{print $4}')
   DSC5=$(echo $USTRING,,,, | cut -d: -f5 | awk -F, '{print $5}')
-  
+
   echo -e "USERNAME\t $UNM \tThe login name of a user"
   echo -e "UID\t $USD \tThe user ID of a user"
   echo -e "GID\t $GRD \tThe primary group ID of a user"
@@ -150,7 +150,7 @@ edit_user_data() {
   if [ $? != 0 ] ; then
     return
   fi
-  
+
   USTRING=$(getent passwd | awk -F: "\$3==$1" )
   UNM=$(echo $USTRING | cut -d: -f1)
   USD=$(echo $USTRING | cut -d: -f3)
@@ -174,7 +174,7 @@ edit_user_data() {
   DSC3=$(echo $USTRING,,,, | cut -d: -f5 | awk -F, '{print $3}')
   DSC4=$(echo $USTRING,,,, | cut -d: -f5 | awk -F, '{print $4}')
   DSC5=$(echo $USTRING,,,, | cut -d: -f5 | awk -F, '{print $5}')
- 
+
   case "$prop" in
   USERNAME) ;;
   UID) ;;
@@ -197,7 +197,7 @@ edit_user_data() {
       exec_command "usermod -G \"$TMP_ALLGROUPS\" $UNM"
     fi
     ;;
-  PASSWORD) 
+  PASSWORD)
     result=`$DIALOG --title " Password options " \
                 --menu "" 0 0 0 \
 	        "Change" "Enter a new password" \
@@ -539,6 +539,10 @@ add_user_menu() {
 		8 50
 	fi
       fi
+
+      # Strip spaces
+      group=$(echo $group | tr -d " ")
+
       if [ -n "$group" ] ; then
 	create=`$DIALOG --title " Home directory " \
 	                --menu ""                  \
@@ -560,7 +564,7 @@ add_user_menu() {
 	  if [ $? != 0 ] ; then
 	    return
 	  fi
-	  TMP_CREATE="-d $homedir"	  
+	  TMP_CREATE="-d $homedir"
         fi
         if [ "$priv" == "Privilidged" ] ; then
           # allocate a gid
@@ -609,7 +613,7 @@ add_user_menu() {
         $DIALOG --title " Error adding user "  \
 	        --msgbox "Group name must not be empty!" \
 		8 50
-      fi      
+      fi
     fi
   else
     $DIALOG --title " Error adding user "  \
@@ -761,7 +765,7 @@ main_menu() {
 
 
 . /etc/lunar/config
-  
+
 export IFS="$TAB_ENTER_IFS"
 
 DIALOG="dialog
