@@ -495,124 +495,128 @@ del_user_menu() {
 
 add_user_menu() {
   priv=`$DIALOG --title " Normal user ID for user ? " \
-                --menu "Please note that the default shell for normal uid is /bin/bash, and empty for privilidged uids."                                  \
-  	        0 0 0                                      \
-	        "Normal"      "First available (uid/gid >= 100)" \
-	        "Privilidged" "Low uid/gid number (uid/gid < 100)  "`
+        --menu "Please note that the default shell for normal uid is /bin/bash, and empty for privilidged uids."                                  \
+  	    0 0 0                                      \
+	    "Normal"      "First available (uid/gid >= 100)" \
+	    "Privilidged" "Low uid/gid number (uid/gid < 100)  "`
   if [ $? != 0 ] ; then
     return
   fi
   user=`$DIALOG --title " Enter the username to add "     \
-                --ok-label      "Add"              \
- 	        --cancel-label  "Exit"             \
- 	        --inputbox      ""                 \
-	       8 50`
+        --ok-label      "Add"              \
+ 	    --cancel-label  "Exit"             \
+ 	    --inputbox      ""                 \
+	    8 50`
   if [ $? != 0 ] ; then
     return
   fi
   if [ -n "$user" ] ; then
     if getent passwd $user > /dev/null ; then
       $DIALOG --title " Error adding user "  \
-              --msgbox "User $user already exists" \
-	      8 50
+        --msgbox "User $user already exists" \
+	    8 50
     else
       group=`$DIALOG --title " Enter the primary group name for $user " \
-	     --menu      "" 0 0 0                  \
-	     " [new] "                             \
-	     "Add a new group"                     \
-	     $(list_groups)`
+	         --menu      "" 0 0 0                  \
+	         " [new] "                             \
+	         "Add a new group"                     \
+	         $(list_groups)`
       if [ $? != 0 ] ; then
         return
       fi
       if [ "$group" == " [new] " ] ; then
         group=`$DIALOG --title " Enter the groupname to add "     \
-                --ok-label      "Add"              \
- 	        --cancel-label  "Exit"             \
- 	        --inputbox      ""            \
-	       8 50 "$user"`
-	 if [ $? != 0 ] ; then
-	   return
-	 fi
-	if getent group $group > /dev/null ; then
-           $DIALOG --title " Warning "  \
-	            --msgbox "Group $group already exists. The user will be added to group \"$group\"!" \
-		8 50
-	fi
+               --ok-label      "Add"              \
+ 	           --cancel-label  "Exit"             \
+ 	           --inputbox      ""            \
+	           8 50 "$user"`
+	    if [ $? != 0 ] ; then
+	      return
+	    fi
+	    if getent group $group > /dev/null ; then
+          $DIALOG --title " Warning "  \
+	        --msgbox "Group $group already exists. The user will be added to group \"$group\"!" \
+		    8 50
+	    fi
       fi
 
       # Strip spaces
       group=$(echo $group | tr -d " ")
 
       if [ -n "$group" ] ; then
-	create=`$DIALOG --title " Home directory " \
-	                --menu ""                  \
-			0 0 0                      \
-			"C" "Create \"/home/$user\" and copy skeleton files" \
-			"O" "Only create \"/home/$user\""         \
-			"S" "Specify or create a special homedirectory..."`
-	if [ $? != 0 ] ; then
-	  return
-	fi
-	if [ "$create" = "C" ] ; then
-	  TMP_CREATE="-d /home/$user -m -k /etc/skel -g $group"
-	elif [ "$create" = "O" ] ; then
-	  TMP_CREATE="-d /home/$user -m -g $group"
-	elif [ "$create" = "S" ] ; then
+	    create=`$DIALOG --title " Home directory " \
+        	    --menu ""                  \
+		        0 0 0                      \
+		        "C" "Create \"/home/$user\" and copy skeleton files" \
+		        "O" "Only create \"/home/$user\""         \
+		        "S" "Specify or create a special homedirectory..."`
+	    if [ $? != 0 ] ; then
+	      return
+	    fi
+	    if [ "$create" = "C" ] ; then
+	      TMP_CREATE="-d /home/$user -m -k /etc/skel -g $group"
+	    elif [ "$create" = "O" ] ; then
+	      TMP_CREATE="-d /home/$user -m -g $group"
+	    elif [ "$create" = "S" ] ; then
           homedir=`$DIALOG --title " Enter the home directory  "     \
-             --inputbox  "Enter the path to the home directory for \"$user\". You will have to create it and set permissions yourself." \
-	       8 50`
-	  if [ $? != 0 ] ; then
-	    return
-	  fi
-	  TMP_CREATE="-d $homedir"
+                   --inputbox  "Enter the path to the home directory for \"$user\". You will have to create it and set permissions yourself." \
+	               8 50`
+	      if [ $? != 0 ] ; then
+	        return
+	      fi
+	      TMP_CREATE="-d $homedir"
         fi
         if [ "$priv" == "Privilidged" ] ; then
           # allocate a gid
-	  for (( N=0  ; N<100 ; N++ )) ; do
-	    if [ -z "$(cat /etc/group | cut -d: -f3 | grep "^$N$" )" ]; then
-	      break
-	    fi
-	  done
-	  if [ "$N" == "100" ]; then
+	      for (( N=0  ; N<100 ; N++ )) ; do
+	        if [ -z "$(cat /etc/group | cut -d: -f3 | grep "^$N$" )" ]; then
+	          break
+	        fi
+	      done
+	      if [ "$N" == "100" ]; then
             $DIALOG --title " Error adding user "  \
-	            --msgbox "Unable to allocate a low GID for $group!" \
-		8 50
-	    return 1
-	  else
-	    TMP_GROUPID="-g $N"
-	  fi
-	  # allocate a uid
-	  for (( N=0  ; N<100  ; N++ )) ; do
-	    if [ -z "$(getent passwd | cut -d: -f3 | grep "^$N$" )" ]; then
-	      break
-	    fi
-	  done
-	  if [ "$N" == "100" ]; then
+	                --msgbox "Unable to allocate a low GID for $group!" \
+		      8 50
+	        return 1
+	      else
+	        if getent group $group > /dev/null ; then
+	          TMP_GROUPID="-g $group"
+	        else
+	          TMP_GROUPID="-g $N"
+	        fi
+	      fi
+	      # allocate a uid
+	      for (( N=0  ; N<100  ; N++ )) ; do
+	        if [ -z "$(getent passwd | cut -d: -f3 | grep "^$N$" )" ]; then
+	          break
+	        fi
+	      done
+	      if [ "$N" == "100" ]; then
             $DIALOG --title " Error adding user "  \
-	            --msgbox "Unable to allocate a low UID for $user!" \
-		8 50
-	    return 1
-	  else
-	    TMP_USERID="-u $N"
-	  fi
-	else
-	  if getent group $group > /dev/null ; then
-	    TMP_GROUPID="-g $group"
-	  else
-	    TMP_GROUPID=""
-	  fi
-	  TMP_USERID="-s /bin/bash"
-	fi
-	# this is where we actually perform the task:
-	if ! getent group $group > /dev/null ; then
+	                --msgbox "Unable to allocate a low UID for $user!" \
+		      8 50
+	        return 1
+	      else
+	        TMP_USERID="-u $N"
+	      fi
+	    else
+	      if getent group $group > /dev/null ; then
+	        TMP_GROUPID="-g $group"
+	      else
+	        TMP_GROUPID=""
+	      fi
+	      TMP_USERID="-s /bin/bash"
+	    fi
+	    # this is where we actually perform the task:
+	    if ! getent group $group > /dev/null ; then
           exec_command "groupadd $group $TMP_GROUPID"
-	fi
-	exec_command "useradd $user $TMP_USERID $TMP_GROUPID $TMP_CREATE"
+	    fi
+	    exec_command "useradd $user $TMP_USERID $TMP_GROUPID $TMP_CREATE"
         edit_user_data $(getent passwd $user | cut -d: -f3)
       else
         $DIALOG --title " Error adding user "  \
-	        --msgbox "Group name must not be empty!" \
-		8 50
+	            --msgbox "Group name must not be empty!" \
+		        8 50
       fi
     fi
   else
