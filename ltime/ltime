@@ -13,7 +13,7 @@
 
 show_timezones()
 {
-    for ITEM in `ls --hide=[a-z]* $LOCALTIME/$1`; do
+    for ITEM in `LANG=C ls --hide=[a-z]* $LOCALTIME/$1`; do
         if [ -n "$1" ]; then
             echo "$1/$ITEM"
         else
