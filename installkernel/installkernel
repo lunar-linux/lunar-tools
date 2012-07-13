@@ -1,6 +1,7 @@
 #!/bin/bash
 
 . /etc/lunar/config
+. $BOOTSTRAP
 
 preserve()
 {
@@ -10,13 +11,13 @@ preserve()
 }
 
 # make backups
-preserve $4/$1
+preserve $4/vmlinuz-$1
 preserve $4/System.map-$1
 preserve $4/config.$1
 
 make modules_install
 # bzImage
-cp $2 $4/$1
+cp $2 $4/vmlinuz-$1
 # System.map
 cp $3 $4/System.map-$1
 # save config as .gz
@@ -24,7 +25,7 @@ cp .config $4/config.$1
 gzip -f $4/config.$1
 
 # and update bootloader
-update_bootloader $1 $1
+update_bootloader vmlinuz-$1 $1
 
 [ $? == 2 ] && true
 
