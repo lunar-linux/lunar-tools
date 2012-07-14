@@ -55,5 +55,5 @@ log:
 	rm -f ChangeLog
 	svnlog > ChangeLog
 
-release:
-	tar cjvf /tmp/lunar-tools-${VERSION}.tar.bz2 --exclude="*/.svn*" -C .. lunar-tools-${VERSION}/ ; \
+dist:
+	git archive --format=tar --prefix=lunar-tools-$(VERSION)/ lunar-tools-$(VERSION) | bzip2 > lunar-tools-$(VERSION).tar.bz2
