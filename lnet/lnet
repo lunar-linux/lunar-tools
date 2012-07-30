@@ -100,7 +100,7 @@ After=network.target
 [Service]
 Type=oneshot
 RemainAfterExit=yes
-ExecStart=/usr/sbin/ip route add default via \$(cat /etc/config.d/gateway)
+ExecStart=/usr/sbin/ip route add default via $(/usr/bin/cat /etc/config.d/gateway)
 ExecStop=/usr/sbin/ip route del default
 
 [Install]
@@ -240,12 +240,12 @@ function gateway_config() {
    GATEWAY=`inputbox "$GATEWAY_PROMPT" "$GATEWAY"`
    echo "$GATEWAY" > /etc/config.d/gateway
    if [ -n $SYSTEMDUNITDIR ]; then
-     if [ -n $GATEWAY ]; then
+     if [ -n "$GATEWAY" ]; then
        systemd_gw_template
        systemctl daemon-reload &> /dev/null
-       ln -s /etc/systemd/system/lnet-default-gateway.service /etc/systemd/system/multi-user.target.wants/lnet-default-gateway.service
+       systemctl enable lnet-default-gateway.service
      else
-       rm /etc/systemd/system/multi-user.target.wants/lnet-default-gateway.service
+       systemctl disable lnet-default-gateway.service
      fi
    fi
 }
