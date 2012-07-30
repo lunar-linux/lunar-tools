@@ -57,46 +57,79 @@ get_dev_list() {
 }
 
 get_dev_status() {
-  L=`/sbin/ifconfig | grep "^$1[[:space:]]" | wc -l | tr -d ' \t\n'`
-  if [[ "$L" -eq "0" ]]; then
+  if ip link show $1 | grep -q 'state DOWN'; then
     echo "[DOWN]"
   else
-    echo "[_UP_]"
+    echo "[ UP ]"
   fi
 }
 
-function systemd_reload() {
-  systemctl daemon-reload > /dev/null 2>&1
+systemd_disable_existing() {
+  for i in $(ls -1 /etc/systemd/system/multi-user.target.wants/lnet-*@${1}.service 2> /dev/null); do
+    systemctl stop ${i##*/} &> /dev/null
+    rm $i &> /dev/null
+  done
 }
 
-function systemd_enable() {
-  systemctl -q enable $1
+systemd_enable() {
+  systemd_disable_existing $1
+  ln -s $SYSTEMDUNITDIR/${2}@.service /etc/systemd/system/multi-user.target.wants/${2}@${1}.service
+  systemctl start ${2}@${1}.service &> /dev/null
+  # Set default gw if not already set
+  if [ -f /etc/config.d/gateway ] && systemctl -q is-enabled lnet-default-gateway.service ; then
+    GATEWAY=$(cat /etc/config.d/gateway)
+    CURRENT_GW=$(ip route show default | grep ^default | awk '{ print $3 }')
+    if [ -n $GATEWAY ] && [[ "$GATEWAY" != "$CURRENT_GW" ]]; then
+      systemctl start lnet-default-gateway.service
+    fi
+  fi
 }
 
-function systemd_disable() {
-  systemctl -q disable $1
+systemd_disable() {
+  systemctl stop ${2}@${1}.service &> /dev/null
+  rm /etc/systemd/system/multi-user.target.wants/${2}@${1}.service &> /dev/null
 }
 
-function systemd_reload_enable() {
-  systemd_reload
-  systemd_enable $1
+systemd_gw_template() {
+  cat <<EOF > /etc/systemd/system/lnet-default-gateway.service
+[Unit]
+Description=Network default gateway
+Wants=network.target
+After=network.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/sbin/ip route add default via \$(cat /etc/config.d/gateway)
+ExecStop=/usr/sbin/ip route del default
+
+[Install]
+WantedBy=multi-user.target
+EOF
 }
 
-function systemd_reload_disable() {
-  systemd_reload
-  systemd_disable $1
+get_systemd_servicetype() {
+  local SERVICETYPE
+
+  if [ "$ADDRESS" = "dhcp" ]; then
+    SERVICETYPE="lnet-${DHCP_CLIENT}"
+  else
+    SERVICETYPE="lnet-static"
+  fi
+  echo $SERVICETYPE
 }
 
 main ()
 {
   unset PROMPT
+
   while true; do
     COUNTER=0
     unset LIST
     for DEVICE in `get_dev_list`; do
-        if [ -L $CONFIG_DIR/$DEVICE ]; then
-	    continue
-	fi
+      if [ -L $CONFIG_DIR/$DEVICE ]; then
+	      continue
+	    fi
         STATUS=`get_dev_status $DEVICE`
 	INTERFACES[$COUNTER]=$DEVICE
 	if [ -z "$LIST" ]; then
@@ -206,6 +239,15 @@ function gateway_config() {
    GATEWAY=$(cat /etc/config.d/gateway)
    GATEWAY=`inputbox "$GATEWAY_PROMPT" "$GATEWAY"`
    echo "$GATEWAY" > /etc/config.d/gateway
+   if [ -n $SYSTEMDUNITDIR ]; then
+     if [ -n $GATEWAY ]; then
+       systemd_gw_template
+       systemctl daemon-reload &> /dev/null
+       ln -s /etc/systemd/system/lnet-default-gateway.service /etc/systemd/system/multi-user.target.wants/lnet-default-gateway.service
+     else
+       rm /etc/systemd/system/multi-user.target.wants/lnet-default-gateway.service
+     fi
+   fi
 }
 
 function ethernet_menu() {
@@ -229,13 +271,10 @@ function ethernet_menu() {
       M)      ethernet_manage_device $1;;
       D)
         if confirm "Are you sure you wish to delete $1?" "--defaultno"; then
-          rm -f "$CONFIG_DIR/$1"
-          if [ -d /run/systemd ]; then
-            local SYSTEMDUNITDIR=$(pkg-config systemd --variable=systemdsystemunitdir)
-            systemd_disable ${1}.service
-            rm -f $SYSTEMDUNITDIR/${1}.service
-            systemd_reload
+          if [ -n $SYSTEMDUNITDIR ]; then
+            systemd_disable_existing ${1}
           fi
+          rm -f "$CONFIG_DIR/$1"
         fi
         ;;
     esac
@@ -289,7 +328,7 @@ function ethernet_manage_device() {
 
   while true; do
     STATUS=`get_dev_status $1`
-    if [[ "$STATUS" == "[_UP_]" ]]; then
+    if [[ "$STATUS" == "[ UP ]" ]]; then
         TOGGLE="Stop"
     else
         TOGGLE="Start"
@@ -312,23 +351,19 @@ function ethernet_manage_device() {
 
     case  $COMMAND  in
       S)
-        # Assume systemd is running if /run/systemd exists
-        if [ -d /run/systemd ]; then
-          local SYSTEMDUNITDIR=$(pkg-config systemd --variable=systemdsystemunitdir)
-          if [ -f $SYSTEMDUNITDIR/${1}.service ]; then
-            systemctl ${TOGGLE/S/s} ${1}.service
-          fi
+        # Assume systemd is running
+        if [ -n $SYSTEMDUNITDIR ]; then
+          SERVICETYPE=$(get_systemd_servicetype)
+          systemctl ${TOGGLE/S/s} ${SERVICETYPE}@${1}.service
         else
           /etc/init.d/network ${TOGGLE/S/s} "$1"
         fi
         ;;
       R)
-        # Assume systemd is running if /run/systemd exists
-        if [ -d /run/systemd ]; then
-          local SYSTEMDUNITDIR=$(pkg-config systemd --variable=systemdsystemunitdir)
-          if [ -f $SYSTEMDUNITDIR/${1}.service ]; then
-            systemctl restart ${1}.service
-          fi
+        # Assume systemd is running
+        if [ -n $SYSTEMDUNITDIR ]; then
+          SERVICETYPE=$(get_systemd_servicetype)
+          systemctl restart ${SERVICETYPE}@${1}.service
         else
           /etc/init.d/network restart "$1"
         fi
@@ -379,58 +414,12 @@ IFCONF_OPTS="$IFCONF_OPTS"
 
 DHCP_CLIENT="${DHCP_CLIENT:-dhcpcd}"
 DHCP_OPTIONS="$DHCP_OPTIONS"
-
-ROUTE_1="$ROUTE_1"
-ROUTE_2="$ROUTE_2"
-ROUTE_3="$ROUTE_3"
-ROUTE_4="$ROUTE_4"
 EOF
-
-  # Assume systemd is running if /run/systemd exists
-  # Create ethX.service file
-  if [ -d /run/systemd ]; then
-    local SYSTEMDUNITDIR=$(pkg-config systemd --variable=systemdsystemunitdir)
-    if [ "$ADDRESS" = "dhcp" ]; then
-      cat > $SYSTEMDUNITDIR/${DEVICE}.service <<EOF
-[Unit]
-Description=DHCPCD client daemon $DEVICE
-Wants=network.target
-Before=network.target
-
-[Service]
-ExecStart=/usr/sbin/dhcpcd -q --nobackground $DEVICE
-
-[Install]
-WantedBy=multi-user.target
-EOF
-    else
-      cat > $SYSTEMDUNITDIR/${DEVICE}.service <<EOF
-[Unit]
-Description=Network connecitivity $DEVICE
-Wants=network.target
-Before=network.target
-
-[Service]
-Type=oneshot
-RemainAfterExit=yes
-EnvironmentFile=/etc/config.d/network/${DEVICE}
-ExecStart=/usr/sbin/ip link set dev ${DEVICE} up
-ExecStart=/usr/sbin/ip addr add \${ADDRESS}/\${NETMASK} broadcast \${BROADCAST} dev ${DEVICE}
-ExecStop=/usr/sbin/ip addr flush dev ${DEVICE}
-ExecStop=/usr/sbin/ip link set dev ${DEVICE} down
-
-[Install]
-WantedBy=multi-user.target
-EOF
-    fi
-    [ "$AUTO" = "Y" ] && systemd_reload_enable ${DEVICE}.service || systemd_reload_disable ${DEVICE}.service
-  fi
 }
 
 if [ -n "$1" ]; then
     . $CONFIG_DIR/$1
 fi
-
 
 DHCP_MODULE_MESSAGE="The DHCP client you have chosen is not installed. Before your device will work, you will need to install the following module: "
 
@@ -464,9 +453,12 @@ while true ; do
 				 --default-item "$DEFAULT" \
 				 --menu "" 0 0 0 \
 				 "A" "Automatically start?    [${AUTO:-Y}]" \
-				 "L" "kernel module to Load   [${MODULE:-}]" \
-				 "Z" "Use manager?            [${MANAGER:-manual}]" \
-				 $(if [ "${MANAGER:-manual}" == "manual" ] ; then
+         $(if [ -z $SYSTEMDUNITDIR ]; then
+				 echo "L"
+         echo "kernel module to Load   [${MODULE:-}]"
+         echo "Z"
+         echo "Use manager?            [${MANAGER:-manual}]"
+				 if [ "${MANAGER:-manual}" == "manual" ] ; then
 					echo "W"
 					echo "Wireless device?        [${WIRELESS:-N}]"
 				    if [ "$WIRELESS" == "Y" ]; then
@@ -479,9 +471,10 @@ while true ; do
 					echo "E"
 					echo "Essid                   [${WIRELESS_ESSID:-default}]"
 				    fi
+            fi
+				  fi
 					echo "D"
 					echo "Dhcp enabled?           [$(echo $ADDRESS | grep -qi dhcp && echo "Y" || echo "N")]"
-				  fi
 				  if [ "$MANAGER" != "manual" ] || [ "$ADDRESS" == "dhcp" ] ; then
 					echo "C"
 					echo "Dhcp client             [${DHCP_CLIENT:-dhcpcd}]"
@@ -495,14 +488,22 @@ while true ; do
 					echo "Netmask                 [${NETMASK}]"
 					echo "B"
 					echo "Broadcast               [${BROADCAST}]"
-					echo "F"
-					echo "Ifconfig options        [${IFCONF_OPTS:-}]"
+          if [ -z $SYSTEMDUNITDIR ]; then
+					  echo "F"
+					  echo "Ifconfig options        [${IFCONF_OPTS:-}]"
+          fi
 				  fi
 
 				  )`
 
 	if [ $? != 0 ]; then
-	    return
+    # Assume systemd is running if SYSTEMDUNITDIR variable is set
+    if [ -n $SYSTEMDUNITDIR ]; then
+      DHCP_TIMEOUT="This device uses DHCP. If no DHCP servers are available to give an IP address\nyou may need to wait for the device to timeout."
+      [ "$ADDRESS" = "dhcp" ] && $DIALOG --infobox "$DHCP_TIMEOUT" 0 0
+      [ "$AUTO" = "Y" ] && systemd_enable $DEVICE $(get_systemd_servicetype) || systemd_disable_existing $DEVICE
+    fi
+	  return
 	fi
 
 	case $CHOICE in
@@ -556,14 +557,13 @@ while true ; do
 				     --default-item "${DHCP_CLIENT:-dhcpcd}" \
 				     --menu "" 0 0 0 \
 				     "dhcpcd" "" \
-				     "dhclient" "" \
-				     "udhcpc" ""`
+				     "dhclient" ""`
 		case $DHCP_CLIENT in
 		dhclient) if ! module_installed dhcp; then
 				msgbox "Warning" "$DHCP_MODULE_MESSAGE dhcp" 10
 			fi ;;
-		udhcpc) if ! module_installed udhcp; then
-				msgbox "Warning" "$DHCP_MODULE_MESSAGE udhcp" 10
+		dhcpcd) if ! module_installed dhcpcd; then
+				msgbox "Warning" "$DHCP_MODULE_MESSAGE dhcpcd" 10
 			fi ;;
 		esac
 		;;
@@ -587,6 +587,7 @@ done
 }
 
 . /etc/lunar/config
+. $BOOTSTRAP
 
 root_check
 
@@ -598,5 +599,10 @@ Lunar Network Management Utility
 
 trap catch_sig INT
 trap ":" QUIT
+
+# Check if we have systemd and that it is running
+if module_installed systemd && [ -d /run/systemd ]; then
+  SYSTEMDUNITDIR=$(pkg-config systemd --variable=systemdsystemunitdir)
+fi
 
 main
