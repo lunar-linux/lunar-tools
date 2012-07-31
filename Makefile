@@ -9,7 +9,7 @@ VERSION = 2012.1
 
 PROGRAMS = lids/lids luser/luser lnet/lnet lservices/lservices \
 	lmodules/lmodules clad/clad ltime/ltime
-DOCS = README COPYING ChangeLog
+DOCS = README COPYING
 MANPAGES = lnet/lnet.8
 PROFILEDFILES = clad/clad.rc
 
@@ -50,10 +50,6 @@ install:
 	for DOC in ${DOCS} ; do \
 		install -m644 $${DOC} ${DOCDIR}/ ; \
 	done
-
-log:
-	rm -f ChangeLog
-	svnlog > ChangeLog
 
 dist:
 	git archive --format=tar --prefix=lunar-tools-$(VERSION)/ lunar-tools-$(VERSION) | bzip2 > lunar-tools-$(VERSION).tar.bz2
