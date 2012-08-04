@@ -169,7 +169,7 @@ service_menu_systemd() {(
 )}
 
 list_systemd_services() {(
-  for SERVICE in $(find $MOONBASE -name "*.service" -o -name "*.socket" ! -regex "$MOONBASE/zlocal/.*" | sed 's;.*/;;' | sort); do
+  for SERVICE in $(find $MOONBASE -name "*.service" -o -name "*.socket" | sed 's;.*/;;' | sort | uniq); do
     echo $SERVICE | grep -q @ && continue
     [ -f "$SYSTEMDUNITDIR/$SERVICE" ] || continue
     DESCRIPTION=$(grep 'Description=' $SYSTEMDUNITDIR/$SERVICE | cut -d= -f2-)
