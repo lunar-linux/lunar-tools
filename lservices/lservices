@@ -169,21 +169,21 @@ service_menu_systemd() {(
 )}
 
 list_systemd_services() {(
-  for SERVICE in $(find $MOONBASE -name "*.service" -o -name "*.socket" ! -regex "$MOONBASE/zlocal/.*" ); do
+  for SERVICE in $(find $MOONBASE -name "*.service" -o -name "*.socket" ! -regex "$MOONBASE/zlocal/.*" | sed 's;.*/;;' | sort); do
     echo $SERVICE | grep -q @ && continue
-    [ -f "$SYSTEMDUNITDIR/${SERVICE##*/}" ] || continue
-    DESCRIPTION=$(grep 'Description=' $SERVICE | cut -d= -f2-)
-    if systemctl -q is-enabled ${SERVICE##*/}; then
+    [ -f "$SYSTEMDUNITDIR/$SERVICE" ] || continue
+    DESCRIPTION=$(grep 'Description=' $SYSTEMDUNITDIR/$SERVICE | cut -d= -f2-)
+    if systemctl -q is-enabled $SERVICE; then
       FLAG="+"
     else
       FLAG="-"
     fi
-    if systemctl -q is-active ${SERVICE##*/}; then
+    if systemctl -q is-active $SERVICE; then
       FLAG+="1"
     else
       FLAG+="0"
     fi
-    echo "${SERVICE##*/}"
+    echo "$SERVICE"
     echo "$FLAG $DESCRIPTION"
   done
 )}
