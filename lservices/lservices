@@ -213,10 +213,8 @@ main_menu() {
  done
 }
 
-
-
 . /etc/lunar/config
-. $BOOTSTRAP
+[ -n $BOOTSTRAP ] && . $BOOTSTRAP
 
 export IFS="$TAB_ENTER_IFS"
 export LC_ALL=C
