@@ -6,6 +6,7 @@
 ############################################################
 #                                                          #
 # Copyright Auke Kok 2004 under GPLv2                      #
+# Copyright Stefan Wold 2012 under GPLv2                   #
 #                                                          #
 ############################################################
 
@@ -113,6 +114,80 @@ list_initd_services() {
   )
 }
 
+service_menu_systemd() {(
+  #  stop      stop the service (currently started)
+  # or
+  #  start     start the service (currently stopped)
+  #  remove    remove the service from the startup sequence (currently added)
+  # or
+  #  add       add the service to the startup sequence (currently removed)
+
+  while true ; do
+    if systemctl -q is-active $1 ; then
+      TI1="stop"
+      OP1="stop the service (currently started)"
+    else
+      TI1="start"
+      OP1="start the service (currently stopped)"
+    fi
+    if systemctl -q is-enabled $1 ; then
+      TI2="remove"
+      OP2="remove the service from the startup sequence (currently added)"
+    else
+      TI2="add"
+      OP2="add the service to the startup sequence (currently removed)"
+    fi
+    action=`$DIALOG --title " Service actions for \"$1\" " \
+                  --ok-label "Go" \
+                  --cancel-label "Exit" \
+                  --menu ""  0 0 0 \
+                  "$TI1" \
+                  "$OP1" \
+                  "$TI2" \
+                  "$OP2"`
+    if [ $? != 0 ] ; then
+      return
+    fi
+
+    case $action in
+      start)
+        systemctl start $1
+        sleep 3
+        ;;
+      stop)
+        systemctl stop $1
+        sleep 3
+        ;;
+      add)
+        systemctl enable $1
+        ;;
+      remove)
+        systemctl disable $1
+        ;;
+    esac
+  done
+)}
+
+list_systemd_services() {(
+  for SERVICE in $(find $MOONBASE -name "*.service" -o -name "*.socket" ! -regex "$MOONBASE/zlocal/.*" ); do
+    echo $SERVICE | grep -q @ && continue
+    [ -f "$SYSTEMDUNITDIR/${SERVICE##*/}" ] || continue
+    DESCRIPTION=$(grep 'Description=' $SERVICE | cut -d= -f2-)
+    if systemctl -q is-enabled ${SERVICE##*/}; then
+      FLAG="+"
+    else
+      FLAG="-"
+    fi
+    if systemctl -q is-active ${SERVICE##*/}; then
+      FLAG+="1"
+    else
+      FLAG+="0"
+    fi
+    echo "${SERVICE##*/}"
+    echo "$FLAG $DESCRIPTION"
+  done
+)}
+
 
 main_menu() {
  while true ; do
@@ -122,17 +197,26 @@ main_menu() {
 		  --menu                          \
 		  "( Legend: +=enabled, -=disabled, 1=started, 0=stopped)" \
 		  0 0 0                           \
-		  $(list_initd_services)`
+		  $(if [ -n $SYSTEMDUNITDIR ]; then
+          list_systemd_services
+        else
+          list_initd_services
+        fi)`
   if [ $? != 0 ] ; then
     return
   fi
-  service_menu $(echo $action | sed 's/ //g')
+  if [ -n $SYSTEMDUNITDIR ]; then
+    service_menu_systemd $(echo $action | sed 's/ //g')
+  else
+    service_menu $(echo $action | sed 's/ //g')
+  fi
  done
 }
 
 
 
 . /etc/lunar/config
+. $BOOTSTRAP
 
 export IFS="$TAB_ENTER_IFS"
 export LC_ALL=C
@@ -142,5 +226,9 @@ DIALOG="dialog
 Lunar Services Management Utility
 --stdout"
 
-main_menu
+# Check if we have systemd and that it is running
+if module_installed systemd && [ -d /run/systemd ]; then
+  SYSTEMDUNITDIR=$(pkg-config systemd --variable=systemdsystemunitdir)
+fi
 
+main_menu
