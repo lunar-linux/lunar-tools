@@ -50,30 +50,34 @@ timezone_menu()
     if [ -f "$LOCALTIME/$ZONE" ]; then
         ln -sf $LOCALTIME/$ZONE /etc/localtime
 
-        TITLE="GMT or Local"
-        HELP="Does the hardware clock store time in GMT or local?"
+        # Systemd encourage UTC use and this code write unsupported sysvinit files
+        # thus we disable it if systemd is detected
+        if ! module_installed systemd ; then
+          TITLE="GMT or Local"
+          HELP="Does the hardware clock store time in GMT or local?"
 
-        CLOCK=`$DIALOG --title "$TITLE"   \
-                       --menu "$HELP"     \
-                       0 0 0              \
-                       "GMT"    ""        \
-                       "Local"  ""`       &&
-        case $CLOCK in
+          CLOCK=`$DIALOG --title "$TITLE"   \
+                         --menu "$HELP"     \
+                         0 0 0              \
+                         "GMT"    ""        \
+                         "Local"  ""`       &&
+          case $CLOCK in
             GMT) HWCLOCK="--utc" ;;
             Local) HWCLOCK="--localtime" ;;
-        esac
-        (
-                echo "#!/bin/sh"
-                echo "/sbin/hwclock --hctosys $HWCLOCK"
-        ) > /etc/init.d/localtime
-        chmod 0755 /etc/init.d/localtime
-        ln -sf /etc/init.d/localtime /etc/rcS.d/S15localtime
-        break
-    
+          esac
+          (
+            echo "#!/bin/sh"
+            echo "/sbin/hwclock --hctosys $HWCLOCK"
+          ) > /etc/init.d/localtime
+          chmod 0755 /etc/init.d/localtime
+          ln -sf /etc/init.d/localtime /etc/rcS.d/S15localtime
+          break
+        fi
     fi
 }
 
 . /etc/lunar/config
+[ -n $BOOTSTRAP ] && . $BOOTSTRAP
 
 export IFS="$TAB_ENTER_IFS"
 
