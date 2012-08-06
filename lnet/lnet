@@ -239,7 +239,7 @@ function gateway_config() {
    GATEWAY=$(cat /etc/config.d/gateway)
    GATEWAY=`inputbox "$GATEWAY_PROMPT" "$GATEWAY"`
    echo "$GATEWAY" > /etc/config.d/gateway
-   if [ -n $SYSTEMDUNITDIR ]; then
+   if [ -n "$SYSTEMDUNITDIR" ]; then
      if [ -n "$GATEWAY" ]; then
        systemd_gw_template
        systemctl daemon-reload &> /dev/null
@@ -352,7 +352,7 @@ function ethernet_manage_device() {
     case  $COMMAND  in
       S)
         # Assume systemd is running
-        if [ -n $SYSTEMDUNITDIR ]; then
+        if [ -n "$SYSTEMDUNITDIR" ]; then
           SERVICETYPE=$(get_systemd_servicetype)
           systemctl ${TOGGLE/S/s} ${SERVICETYPE}@${1}.service
         else
@@ -361,7 +361,7 @@ function ethernet_manage_device() {
         ;;
       R)
         # Assume systemd is running
-        if [ -n $SYSTEMDUNITDIR ]; then
+        if [ -n "$SYSTEMDUNITDIR" ]; then
           SERVICETYPE=$(get_systemd_servicetype)
           systemctl restart ${SERVICETYPE}@${1}.service
         else
@@ -453,7 +453,7 @@ while true ; do
 				 --default-item "$DEFAULT" \
 				 --menu "" 0 0 0 \
 				 "A" "Automatically start?    [${AUTO:-Y}]" \
-         $(if [ -z $SYSTEMDUNITDIR ]; then
+         $(if [ -z "$SYSTEMDUNITDIR" ]; then
 				 echo "L"
          echo "kernel module to Load   [${MODULE:-}]"
          echo "Z"
@@ -488,7 +488,7 @@ while true ; do
 					echo "Netmask                 [${NETMASK}]"
 					echo "B"
 					echo "Broadcast               [${BROADCAST}]"
-          if [ -z $SYSTEMDUNITDIR ]; then
+          if [ -z "$SYSTEMDUNITDIR" ]; then
 					  echo "F"
 					  echo "Ifconfig options        [${IFCONF_OPTS:-}]"
           fi
@@ -498,7 +498,7 @@ while true ; do
 
 	if [ $? != 0 ]; then
     # Assume systemd is running if SYSTEMDUNITDIR variable is set
-    if [ -n $SYSTEMDUNITDIR ]; then
+    if [ -n "$SYSTEMDUNITDIR" ]; then
       DHCP_TIMEOUT="This device uses DHCP. If no DHCP servers are available to give an IP address\nyou may need to wait for the device to timeout."
       [ "$ADDRESS" = "dhcp" ] && $DIALOG --infobox "$DHCP_TIMEOUT" 0 0
       [ "$AUTO" = "Y" ] && systemd_enable $DEVICE $(get_systemd_servicetype) || systemd_disable_existing $DEVICE
@@ -587,7 +587,7 @@ done
 }
 
 . /etc/lunar/config
-. $BOOTSTRAP
+[ -n "$BOOTSTRAP" ] && . $BOOTSTRAP
 
 root_check
 

@@ -197,7 +197,7 @@ main_menu() {
 		  --menu                          \
 		  "( Legend: +=enabled, -=disabled, 1=started, 0=stopped)" \
 		  0 0 0                           \
-		  $(if [ -n $SYSTEMDUNITDIR ]; then
+		  $(if [ -n "$SYSTEMDUNITDIR" ]; then
           list_systemd_services
         else
           list_initd_services
@@ -214,7 +214,7 @@ main_menu() {
 }
 
 . /etc/lunar/config
-[ -n $BOOTSTRAP ] && . $BOOTSTRAP
+[ -n "$BOOTSTRAP" ] && . $BOOTSTRAP
 
 export IFS="$TAB_ENTER_IFS"
 export LC_ALL=C

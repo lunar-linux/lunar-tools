@@ -77,7 +77,7 @@ timezone_menu()
 }
 
 . /etc/lunar/config
-[ -n $BOOTSTRAP ] && . $BOOTSTRAP
+[ -n "$BOOTSTRAP" ] && . $BOOTSTRAP
 
 export IFS="$TAB_ENTER_IFS"
 
