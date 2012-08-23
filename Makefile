@@ -7,48 +7,29 @@
 # i.e. 2004.9 2004.10 2004.11 ...
 VERSION = 2012.7
 
-PROGRAMS = lids/lids luser/luser lnet/lnet lservices/lservices \
-	lmodules/lmodules clad/clad ltime/ltime
+sbin_PROGS = prog/lids prog/luser prog/lnet prog/lservices \
+	prog/lmodules prog/clad prog/ltime
 DOCS = README COPYING
-MANPAGES = lnet/lnet.8
-PROFILEDFILES = clad/clad.rc
-
-BINDIR = /usr/bin/
-SBINDIR = /usr/sbin/
-MANDIR = /usr/share/man/
-DOCDIR = /usr/share/doc/lunar-tools/
-PROFILEDDIR = /etc/profile.d/
+MANPAGES = $(shell ls -1 man/*)
 
 all:
-install:
-	if [ ! -d "/sbin" ] ; then \
-	    mkdir -p "/sbin" ; \
-	fi
-	install -m755 installkernel/installkernel /sbin/
-	if [ ! -d "${SBINDIR}" ] ; then \
-	    mkdir -p ${SBINDIR} ; \
-	fi
-	for PROGRAM in ${PROGRAMS} ; do \
-	    install -m755 $${PROGRAM} ${SBINDIR}/ ; \
+
+.PHONY:
+install: .PHONY
+	install -d $(DESTDIR)/sbin
+	install -m755 prog/installkernel $(DESTDIR)/sbin/
+	install -d $(DESTDIR)/usr/sbin
+	for PROGRAM in ${sbin_PROGS} ; do \
+	    install -m755 $${PROGRAM} $(DESTDIR)/usr/sbin/ ; \
 	done
 	for MANPAGE in ${MANPAGES} ; do \
 	    EXT=`echo "$${MANPAGE:(($${#MANPAGE}-1)):1}"` ; \
-	    if [ ! -d "${MANDIR}man$$EXT" ] ; then \
-	        mkdir -p ${MANDIR}man$$EXT ; \
-	    fi ; \
-	    install -m644 $${MANPAGE} ${MANDIR}man$$EXT/ ; \
+	    install -d $(DESTDIR)/usr/share/man/man$$EXT ; \
+	    install -m644 $${MANPAGE} $(DESTDIR)/usr/share/man/man$$EXT/ ; \
 	done
-	if [ ! -d "${PROFILEDDIR}" ] ; then \
-	    mkdir -p ${PROFILEDDIR} ; \
-	fi
-	for RCFILE in ${PROFILEDFILES} ; do \
-	    install -m644 $${RCFILE} ${PROFILEDDIR}/ ; \
-	done
-	if [ ! -d "${DOCDIR}" ] ; then \
-		mkdir -p ${DOCDIR} ; \
-	fi
+	install -d $(DESTDIR)/usr/share/doc/lunar-tools
 	for DOC in ${DOCS} ; do \
-		install -m644 $${DOC} ${DOCDIR}/ ; \
+		install -m644 $${DOC} $(DESTDIR)/usr/share/doc/lunar-tools/ ; \
 	done
 
 dist:
