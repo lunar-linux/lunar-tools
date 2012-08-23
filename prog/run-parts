@@ -1,0 +1,80 @@
+#!/bin/bash
+# Parts ripped from fedora which has borrowed the concept from debian
+#
+# Dont stop on fail
+set +e
+
+if [ $# -lt 1 ]; then
+  echo "Usage: run-parts [--list | --test | --cron | -a <val> ... | --arg=<val> ... ] <dir>"
+  exit 1
+fi
+
+while [ $# -gt 1 ]; do
+  case $1 in 
+    -a)
+      PARAMS+=" $2"
+      shift 2
+      ;;
+    --arg*)
+      PARAMS+=" ${1/--arg=/}"
+      shift
+      ;;
+    --list)
+      list=1
+      shift
+      break
+      ;;
+    --test)
+      test=1
+      shift
+      break
+      ;;
+    --cron)
+      cron=1
+      shift
+      break
+      ;;
+    --)
+      break
+      ;;
+    *)
+      break
+      ;;
+  esac
+done
+
+if [ ! -d $1 ]; then
+  echo "Not a directory: $1"
+  exit 1
+fi
+
+for i in $(LC_ALL=C; echo ${1%/}/*[^~,]) ; do
+  [ -d $i ] && continue
+  [ "${i%.swp}" != "${i}" ] && continue
+  [ "${i%,v}" != "${i}" ] && continue
+
+  if [ -e $i ]; then
+    if [ ${list:-0} = 1 ]; then
+      echo $i
+    elif [ -x $i ]; then
+      if [ ${test:-0} = 1 ]; then
+        echo $i
+        continue
+      fi
+      
+      if [ ${cron:-0} = 1 ]; then
+        logger -i -p cron.notice -t "run-parts($1)" "starting $(basename $i)"
+        $i 2>&1 | awk -v "progname=$i" \
+                'progname {
+                    print progname ":\n"
+                    progname="";
+                 }
+                 { print; }'
+        logger -i -p cron.notice -t "run-parts($1)" "finished $(basename $i)"
+      else
+        $i $PARAMS 2>&1
+      fi
+    fi
+  fi
+done
+exit 0

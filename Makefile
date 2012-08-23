@@ -7,6 +7,7 @@
 # i.e. 2004.9 2004.10 2004.11 ...
 VERSION = 2012.7
 
+bin_PROGS = prog/run-parts
 sbin_PROGS = prog/lids prog/luser prog/lnet prog/lservices \
 	prog/lmodules prog/clad prog/ltime
 DOCS = README COPYING
@@ -18,6 +19,10 @@ all:
 install: .PHONY
 	install -d $(DESTDIR)/sbin
 	install -m755 prog/installkernel $(DESTDIR)/sbin/
+	install -d $(DESTDIR)/usr/bin
+	for PROGRAM in ${bin_PROGS} ; do \
+	    install -m755 $${PROGRAM} $(DESTDIR)/usr/bin/ ; \
+	done
 	install -d $(DESTDIR)/usr/sbin
 	for PROGRAM in ${sbin_PROGS} ; do \
 	    install -m755 $${PROGRAM} $(DESTDIR)/usr/sbin/ ; \
