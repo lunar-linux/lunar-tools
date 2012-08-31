@@ -271,7 +271,7 @@ function ethernet_menu() {
       M)      ethernet_manage_device $1;;
       D)
         if confirm "Are you sure you wish to delete $1?" "--defaultno"; then
-          if [ -n $SYSTEMDUNITDIR ]; then
+          if [ -n "$SYSTEMDUNITDIR" ]; then
             systemd_disable_existing ${1}
           fi
           rm -f "$CONFIG_DIR/$1"
