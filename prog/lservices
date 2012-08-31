@@ -205,7 +205,7 @@ main_menu() {
   if [ $? != 0 ] ; then
     return
   fi
-  if [ -n $SYSTEMDUNITDIR ]; then
+  if [ -n "$SYSTEMDUNITDIR" ]; then
     service_menu_systemd $(echo $action | sed 's/ //g')
   else
     service_menu $(echo $action | sed 's/ //g')
