@@ -123,7 +123,7 @@ service_menu_systemd() {(
   #  add       add the service to the startup sequence (currently removed)
 
   while true ; do
-    if systemctl -q is-active $1 ; then
+    if systemctl -q is-active $1 2> /dev/null; then
       TI1="stop"
       OP1="stop the service (currently started)"
     else
@@ -178,7 +178,7 @@ list_systemd_services() {(
     else
       FLAG="-"
     fi
-    if systemctl -q is-active $SERVICE; then
+    if systemctl -q is-active $SERVICE 2> /dev/null; then
       FLAG+="1"
     else
       FLAG+="0"
