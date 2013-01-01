@@ -187,6 +187,7 @@ check_md5sums() {
 
 
 . /etc/lunar/config
+[ -n "$BOOTSTRAP" ] && . $BOOTSTRAP
 
 GETOPT_ARGS=$(getopt -q -n lids -o "dvhs" -l "debug,verbose,help,silent" -- "$@")
 
