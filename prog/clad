@@ -111,6 +111,7 @@ node_run()
 
 
 . /etc/lunar/config
+[ -n "$BOOTSTRAP" ] && . $BOOTSTRAP
 
 CLAD_CONF_DIR=/var/lib/clad
 

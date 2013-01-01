@@ -769,6 +769,7 @@ main_menu() {
 
 
 . /etc/lunar/config
+[ -n "$BOOTSTRAP" ] && . $BOOTSTRAP
 
 export IFS="$TAB_ENTER_IFS"
 
