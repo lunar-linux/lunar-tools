@@ -5,7 +5,7 @@
 # versioning scheme: since this is mostly a linear process if incremental
 # but we do not update that often we use year.number as version number
 # i.e. 2004.9 2004.10 2004.11 ...
-VERSION = 2012.9
+VERSION = 2013.1
 
 bin_PROGS = prog/run-parts
 sbin_PROGS = prog/lids prog/luser prog/lnet prog/lservices \
