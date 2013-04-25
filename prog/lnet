@@ -57,7 +57,7 @@ get_dev_list() {
 }
 
 get_dev_status() {
-  if ip link show $1 | grep -q 'state DOWN'; then
+  if ip link show $1 | egrep -q '[<,]UP[,>]'; then
     echo "[DOWN]"
   else
     echo "[ UP ]"
@@ -126,6 +126,7 @@ main ()
   while true; do
     COUNTER=0
     unset LIST
+    unset MANAGE
     for DEVICE in `get_dev_list`; do
       if [ -L $CONFIG_DIR/$DEVICE ]; then
 	      continue
@@ -139,6 +140,9 @@ main ()
 	fi
 	(( COUNTER++ ))
     done
+    if (( COUNTER > 0 )) ; then
+        MANAGE="M\nManage network devices\n"
+    fi
     COMMAND=`$DIALOG  --title "Network configuration" \
                       --ok-label "Select"            \
 		      --cancel-label "Exit"          \
@@ -150,7 +154,7 @@ main ()
                       "D"  "Setup DNS configuration" \
 		      "N"  "Setup host and domain name" \
 		      "G"  "Setup global Gateway" \
-		      "M"  "Manage network devices"`
+		      $(echo -en $MANAGE)`
 
     if [ $? != 0 ] ; then
       return
@@ -281,6 +285,8 @@ function ethernet_menu() {
 }
 
 function ethernet_manage_menu() {
+    NO_INTERFACES="There are no interfaces to be listed. You may want to configure a device first."
+
   while true; do
     unset LIST INTERFACES
     COUNTER=0
@@ -294,6 +300,11 @@ function ethernet_manage_menu() {
 	fi
 	(( COUNTER++ ))
     done
+
+    if (( COUNTER == 0 )) ; then
+        msgbox "Manage Devices" "$NO_INTERFACES" 7
+        return
+    fi
 
     PROMPT="Select an interface to manage"
     DEVICE=`$DIALOG  --title "Manage Devices"       \
@@ -370,8 +381,8 @@ function ethernet_manage_device() {
         ;;
     esac
 
-    if [[ "$(ifconfig | grep $1 | wc -l)" -ge "1" ]]; then
-        T=1; else T=0
+    if ip link show $1 | egrep -q '[<,]up[,>]'; then
+        T=0; else T=1
     fi
 
     if [[ ( "$COMMAND" == "S" && "$TOGGLE" == "Start" && "$T" != "1" ) || 
