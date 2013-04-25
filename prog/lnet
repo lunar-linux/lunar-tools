@@ -57,7 +57,7 @@ get_dev_list() {
 }
 
 get_dev_status() {
-  if ip link show $1 | grep -q 'state DOWN'; then
+  if ip link show $1 | egrep -q '[<,]UP[,>]'; then
     echo "[DOWN]"
   else
     echo "[ UP ]"
@@ -381,7 +381,7 @@ function ethernet_manage_device() {
         ;;
     esac
 
-    if ip link show $1 | grep -q 'state DOWN'; then
+    if ip link show $1 | egrep -q '[<,]up[,>]'; then
         T=0; else T=1
     fi
 
