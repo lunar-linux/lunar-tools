@@ -217,24 +217,30 @@ function hostname_config()
      HOSTNAME=$(cat /etc/hostname)
    fi
    HOSTNAME=`inputbox "Enter this systems host name" "$HOSTNAME"`
-   if [ -n "$HOSTNAME" ]; then
-     echo "$HOSTNAME" > /etc/hostname
+   # Assume systemd is running
+   if [ -n "$SYSTEMDUNITDIR" ]; then
+     clear
+     hostnamectl set-hostname "$HOSTNAME"
    else
-     rm /etc/hostname
+     if [ -n "$HOSTNAME" ]; then
+       echo "$HOSTNAME" > /etc/hostname
+     else
+       rm /etc/hostname
+     fi
+     if [ -f /etc/domainname ]; then
+       DOMAINNAME=$(cat /etc/domainname)
+     fi
+     DOMAINNAME=`inputbox "Enter this systems domain name" "$DOMAINNAME"`
+     if [ -n "$DOMAINNAME" ]; then
+       echo "$DOMAINNAME" > /etc/domainname
+     else
+       rm /etc/domainname
+     fi
+  
+     # and set them too:
+     clear
+     /etc/init.d/hostname
    fi
-   if [ -f /etc/domainname ]; then
-     DOMAINNAME=$(cat /etc/domainname)
-   fi
-   DOMAINNAME=`inputbox "Enter this systems domain name" "$DOMAINNAME"`
-   if [ -n "$DOMAINNAME" ]; then
-     echo "$DOMAINNAME" > /etc/domainname
-   else
-     rm /etc/domainname
-   fi
-
-   # and set them too:
-   clear
-   /etc/init.d/hostname
    sleep 2
 }
 
