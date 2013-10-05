@@ -10,7 +10,7 @@
 # Just kidding.  This is an adaption of the network config #
 # contained within the Lunar install script.               #
 #                                                          #
-# Copyright 2012 by Stefan Wold                            #
+# Copyright 2012-2013 by Stefan Wold                       #
 #                                                          #
 # this code is GPLv2                                       #
 ############################################################
@@ -52,8 +52,12 @@ goodbye() {
   exit  0
 }
 
-get_dev_list() {
+get_configured_dev_list() {
   ls -1 $CONFIG_DIR | sort
+}
+
+get_dev_list() {
+  ip link show | awk -F": " '/^[0-9]+/{ if($2 != "lo") print $2; }' | sort
 }
 
 get_dev_status() {
@@ -127,34 +131,30 @@ main ()
     COUNTER=0
     unset LIST
     unset MANAGE
-    for DEVICE in `get_dev_list`; do
+    for DEVICE in $(get_configured_dev_list); do
       if [ -L $CONFIG_DIR/$DEVICE ]; then
-	      continue
-	    fi
-        STATUS=`get_dev_status $DEVICE`
-	INTERFACES[$COUNTER]=$DEVICE
-	if [ -z "$LIST" ]; then
-	  LIST="$COUNTER\nEdit device $DEVICE     $STATUS\n"
-	else
-	  LIST="$LIST$COUNTER\nEdit device $DEVICE     $STATUS\n"
-	fi
-	(( COUNTER++ ))
+        continue
+      fi
+      STATUS=`get_dev_status $DEVICE`
+      INTERFACES[$COUNTER]=$DEVICE
+      LIST+="$COUNTER\nEdit device $DEVICE    $STATUS\n"
+      (( COUNTER++ ))
     done
     if (( COUNTER > 0 )) ; then
-        MANAGE="M\nManage network devices\n"
+      MANAGE="M\nManage network devices\n"
     fi
     COMMAND=`$DIALOG  --title "Network configuration" \
                       --ok-label "Select"            \
-		      --cancel-label "Exit"          \
+                      --cancel-label "Exit"          \
                       --menu                         \
-		      ""                             \
+                      ""                             \
                       0 0 0                          \
-		      $(echo -en $LIST)              \
+                      $(echo -en $LIST)              \
                       "A"  "Add a network device"    \
                       "D"  "Setup DNS configuration" \
-		      "N"  "Setup host and domain name" \
-		      "G"  "Setup global Gateway" \
-		      $(echo -en $MANAGE)`
+                      "N"  "Setup host and domain name" \
+                      "G"  "Setup global Gateway" \
+                      $(echo -en $MANAGE)`
 
     if [ $? != 0 ] ; then
       return
@@ -236,7 +236,7 @@ function hostname_config()
      else
        rm /etc/domainname
      fi
-  
+
      # and set them too:
      clear
      /etc/init.d/hostname
@@ -264,13 +264,13 @@ function ethernet_menu() {
     PROMPT="Actions for interface $1\nDevice is: `get_dev_status $1`"
     COMMAND=`$DIALOG  --title "Modify device $1"     \
                       --ok-label "Select"            \
-		      --cancel-label "Exit"          \
+          --cancel-label "Exit"          \
                       --menu                         \
-		      $PROMPT                        \
+          $PROMPT                        \
                       0 0 0                          \
                       'C'  'Reconfigure'             \
                       'M'  'Manage'                  \
-		      'D'  'Delete'`
+          'D'  'Delete'`
 
     if [ $? != 0 ] ; then
       return
@@ -291,35 +291,37 @@ function ethernet_menu() {
 }
 
 function ethernet_manage_menu() {
-    NO_INTERFACES="There are no interfaces to be listed. You may want to configure a device first."
+  NO_INTERFACES="There are no interfaces to be listed. You may want to configure a device first."
+  FORMAT="%-6s %-15s"
 
   while true; do
-    unset LIST INTERFACES
+    unset INTERFACES STR
     COUNTER=0
-    for DEVICE in `get_dev_list`; do
-	INTERFACES[$COUNTER]=$DEVICE
-        STATUS=`get_dev_status $DEVICE`
-	if [ -z "$LIST" ]; then
-	  LIST="$COUNTER\n$DEVICE     $STATUS\n"
-	else
-	  LIST="$LIST$COUNTER\n$DEVICE     $STATUS\n"
-	fi
-	(( COUNTER++ ))
+    LIST=()
+    for DEVICE in $(get_dev_list); do
+      INTERFACES[$COUNTER]=$DEVICE
+      STATUS=$(get_dev_status $DEVICE)
+      STR=$(printf "$FORMAT" $STATUS $DEVICE)
+      if [ ! -f "$CONFIG_DIR/$DEVICE" ]; then
+        STR+=" (unconfigured)"
+      fi
+      LIST+=($COUNTER "$STR")
+      (( COUNTER++ ))
     done
 
     if (( COUNTER == 0 )) ; then
-        msgbox "Manage Devices" "$NO_INTERFACES" 7
-        return
+      msgbox "Manage Devices" "$NO_INTERFACES" 7
+      return
     fi
 
     PROMPT="Select an interface to manage"
     DEVICE=`$DIALOG  --title "Manage Devices"       \
-		     --ok-label "Select"            \
-		     --cancel-label "Return"        \
-		     --menu                         \
-		     $PROMPT                        \
-		     0 0 0                          \
-		     $(echo -en $LIST)`
+         --ok-label "Select"            \
+         --cancel-label "Return"        \
+         --menu                         \
+         $PROMPT                        \
+         0 0 0                          \
+         "${LIST[@]}"`
 
     case  $?  in
       0)      ethernet_manage_device ${INTERFACES[$DEVICE]} ;;
@@ -353,12 +355,12 @@ function ethernet_manage_device() {
 
     PROMPT="Device $1 is: $STATUS"
     COMMAND=`$DIALOG  --title "Manage Device $1"     \
-		      --cancel-label "Return"        \
+          --cancel-label "Return"        \
                       --menu                         \
-		      $PROMPT                        \
+          $PROMPT                        \
                       0 0 0                          \
-		      "S" "$TOGGLE Device"           \
-		      "R" "Restart Device"`
+          "S" "$TOGGLE Device"           \
+          "R" "Restart Device"`
 
     if [ $? != 0 ] ; then
       return
@@ -391,8 +393,8 @@ function ethernet_manage_device() {
         T=1; else T=0
     fi
 
-    if [[ ( "$COMMAND" == "S" && "$TOGGLE" == "Start" && "$T" != "1" ) || 
-          ( "$COMMAND" == "S" && "$TOGGLE" == "Stop" && "$T" != "0" ) || 
+    if [[ ( "$COMMAND" == "S" && "$TOGGLE" == "Start" && "$T" != "1" ) ||
+          ( "$COMMAND" == "S" && "$TOGGLE" == "Stop" && "$T" != "0" ) ||
           ( "$COMMAND" == "R" && "$T" == "0" )]]; then
       msgbox "Warning" "$ACTION_FAILED" 7
     fi
@@ -400,13 +402,13 @@ function ethernet_manage_device() {
 }
 
 function ethernet_config()  {
-# unset all variables
-unset WIRELESS DEVICE AUTO MODULE MODULE_OPTIONS ADDRESS MANAGER
-unset NETMASK BROADCAST GATEWAY DHCP_CLIENT DHCP_OPTIONS
-unset WIRELESS_KEY WIRELESS_RATE WIRELESS_MODE WIRELESS_ESSID
+  # unset all variables
+  unset WIRELESS DEVICE AUTO MODULE MODULE_OPTIONS ADDRESS MANAGER
+  unset NETMASK BROADCAST GATEWAY DHCP_CLIENT DHCP_OPTIONS
+  unset WIRELESS_KEY WIRELESS_RATE WIRELESS_MODE WIRELESS_ESSID
 
-if_template() {
-  cat > $CONFIG_DIR/$DEVICE << EOF
+  if_template() {
+    cat > $CONFIG_DIR/$DEVICE << EOF
 #
 # configuration for "$DEVICE"
 # automatically generated by lnet - do not edit, run 'lnet' instead
@@ -434,173 +436,193 @@ DHCP_OPTIONS="$DHCP_OPTIONS"
 EOF
 }
 
-if [ -n "$1" ]; then
+  if [ -n "$1" ]; then
     . $CONFIG_DIR/$1
-fi
+  fi
 
-DHCP_MODULE_MESSAGE="The DHCP client you have chosen is not installed. Before your device will work, you will need to install the following module: "
+  DHCP_MODULE_MESSAGE="The DHCP client you have chosen is not installed. Before your device will work, you will need to install the following module: "
 
-if [ -z $1 ]; then
-     while [ -z $DEVICE ]; do
-         DEVICES=`get_dev_list`
-         TDEV="eth0"
-         for N in `seq 0 9`; do
-           if [ -z `echo $DEVICES | grep "eth${N}"` ]; then
-             TDEV="eth$N"
-             break
-           fi
-         done
-         DEVICE=`inputbox "For more then one device, use the menu for each of them, ie: eth0, eth1 etc.." "$TDEV"`
-     
-         # Generate a file immediately with some sane defaults
-         AUTO="Y"
-         ADDRESS="dhcp"
-         if_template
-         . $CONFIG_DIR/$DEVICE
-     done
-else
-	 DEVICE=$1
-fi
+  if [ -z $1 ]; then
+    while [ -z $DEVICE ] ; do
+      unset INTERFACES
+      COUNTER=0
+      LIST=()
+      for DEV in $(get_dev_list); do
+        INTERFACES[$COUNTER]=$DEV
+        if [ ! -f "$CONFIG_DIR/$DEV" ]; then
+          LIST+=($COUNTER $DEV)
+        fi
+        (( COUNTER++ ))
+      done
 
-while true ; do
-	DEFAULT=${CHOICE:-}
-	CHOICE=`$DIALOG --title "Networking configuration: $1" \
-				 --ok-label "Select" \
-				 --cancel-label "Close" \
-				 --default-item "$DEFAULT" \
-				 --menu "" 0 0 0 \
-				 "A" "Automatically start?    [${AUTO:-Y}]" \
-         $(if [ -z "$SYSTEMDUNITDIR" ]; then
-				 echo "L"
-         echo "kernel module to Load   [${MODULE:-}]"
-         echo "Z"
-         echo "Use manager?            [${MANAGER:-manual}]"
-				 if [ "${MANAGER:-manual}" == "manual" ] ; then
-					echo "W"
-					echo "Wireless device?        [${WIRELESS:-N}]"
-				    if [ "$WIRELESS" == "Y" ]; then
-					echo "M"
-					echo "Mode                    [${WIRELESS_MODE:-Managed}]"
-					echo "K"
-					echo "Key                     [${WIRELESS_KEY:-}]"
-					echo "R"
-					echo "Rate                    [${WIRELESS_RATE:-auto}]"
-					echo "E"
-					echo "Essid                   [${WIRELESS_ESSID:-default}]"
-				    fi
-            fi
-				  fi
-					echo "D"
-					echo "Dhcp enabled?           [$(echo $ADDRESS | grep -qi dhcp && echo "Y" || echo "N")]"
-				  if [ "$MANAGER" != "manual" ] || [ "$ADDRESS" == "dhcp" ] ; then
-					echo "C"
-					echo "Dhcp client             [${DHCP_CLIENT:-dhcpcd}]"
-					echo "O"
-					echo "Dhcp options            [${DHCP_OPTIONS}]"
-				  fi
-				  if [ "$ADDRESS" != "dhcp" ] ; then
-					echo "I"
-					echo "IP Address              [${ADDRESS}]"
-					echo "N"
-					echo "Netmask                 [${NETMASK}]"
-					echo "B"
-					echo "Broadcast               [${BROADCAST}]"
-          if [ -z "$SYSTEMDUNITDIR" ]; then
-					  echo "F"
-					  echo "Ifconfig options        [${IFCONF_OPTS:-}]"
-          fi
-				  fi
+      PROMPT="Select an interface to configure"
+      RESULT=`$DIALOG  --title "Setup network interface"       \
+              --ok-label "Select"            \
+              --cancel-label "Return"        \
+              --menu                         \
+              $PROMPT                        \
+              0 0 0                          \
+              "${LIST[@]}"`
 
-				  )`
 
-	if [ $? != 0 ]; then
-    # Assume systemd is running if SYSTEMDUNITDIR variable is set
-    if [ -n "$SYSTEMDUNITDIR" ]; then
-      DHCP_TIMEOUT="This device uses DHCP. If no DHCP servers are available to give an IP address\nyou may need to wait for the device to timeout."
-      [ "$ADDRESS" = "dhcp" ] && $DIALOG --infobox "$DHCP_TIMEOUT" 0 0
-      [ "$AUTO" = "Y" ] && systemd_enable $DEVICE $(get_systemd_servicetype) || systemd_disable_existing $DEVICE
+      case $? in
+        0)
+          # Generate a file immediately with some sane defaults
+          DEVICE=${INTERFACES[$RESULT]}
+          AUTO="Y"
+          ADDRESS="dhcp"
+          if_template
+          . $CONFIG_DIR/$$DEVICE
+          ;;
+        1)
+          return ;;
+      esac
+    done
+  else
+    DEVICE=$1
+  fi
+
+  while true ; do
+    DEFAULT=${CHOICE:-}
+    CHOICE=`$DIALOG --title "Networking configuration: $1" \
+            --ok-label "Select" \
+            --cancel-label "Close" \
+            --default-item "$DEFAULT" \
+            --menu "" 0 0 0 \
+            "A" "Automatically start?    [${AUTO:-Y}]" \
+            $(if [ -z "$SYSTEMDUNITDIR" ]; then
+                echo "L"
+                echo "kernel module to Load   [${MODULE:-}]"
+                echo "Z"
+                echo "Use manager?            [${MANAGER:-manual}]"
+                if [ "${MANAGER:-manual}" == "manual" ] ; then
+                  echo "W"
+                  echo "Wireless device?        [${WIRELESS:-N}]"
+                  if [ "$WIRELESS" == "Y" ]; then
+                    echo "M"
+                    echo "Mode                    [${WIRELESS_MODE:-Managed}]"
+                    echo "K"
+                    echo "Key                     [${WIRELESS_KEY:-}]"
+                    echo "R"
+                    echo "Rate                    [${WIRELESS_RATE:-auto}]"
+                    echo "E"
+                    echo "Essid                   [${WIRELESS_ESSID:-default}]"
+                 fi
+               fi
+             fi
+             echo "D"
+             echo "Dhcp enabled?           [$(echo $ADDRESS | grep -qi dhcp && echo "Y" || echo "N")]"
+             if [ "$MANAGER" != "manual" ] || [ "$ADDRESS" == "dhcp" ] ; then
+               echo "C"
+               echo "Dhcp client             [${DHCP_CLIENT:-dhcpcd}]"
+               echo "O"
+               echo "Dhcp options            [${DHCP_OPTIONS}]"
+             fi
+             if [ "$ADDRESS" != "dhcp" ] ; then
+               echo "I"
+               echo "IP Address              [${ADDRESS}]"
+               echo "N"
+               echo "Netmask                 [${NETMASK}]"
+               echo "B"
+               echo "Broadcast               [${BROADCAST}]"
+               if [ -z "$SYSTEMDUNITDIR" ]; then
+                 echo "F"
+                 echo "Ifconfig options        [${IFCONF_OPTS:-}]"
+               fi
+             fi)`
+
+    if [ $? != 0 ]; then
+      # Assume systemd is running if SYSTEMDUNITDIR variable is set
+      if [ -n "$SYSTEMDUNITDIR" ]; then
+        DHCP_TIMEOUT="This device uses DHCP. If no DHCP servers are available to give an IP address\nyou may need to wait for the device to timeout."
+        [ "$ADDRESS" = "dhcp" ] && $DIALOG --infobox "$DHCP_TIMEOUT" 0 0
+        [ "$AUTO" = "Y" ] && systemd_enable $DEVICE $(get_systemd_servicetype) || systemd_disable_existing $DEVICE
+      fi
+      return
     fi
-	  return
-	fi
 
-	case $CHOICE in
-	A)	if [ "$AUTO" == "Y" ]; then
-			AUTO=N
-		else
-			AUTO=Y
-		fi
-		;;
-	L)	MODULE=`inputbox "Enter optional kernel module to load" "$MODULE"`
-		;;
-	Z)	MANAGER=`$DIALOG --no-cancel --title "Select a network configuration method" \
-				 --default-item "${MANAGER:-ifplugd}" \
-				 --menu "" 0 0 0 \
-				 "manual" "do not use ifplugd or wpa_supplicant" \
-				 "ifplugd" "use ifplugd" \
-				 "wpa_supplicant" "Use both ifplugd and wpa_supplicant"`
-		if [ "$MANAGER" == "wpa_supplicant" ] ; then
-			WIRELESS=Y
-		fi
-		if [ "$MANAGER" != "manual" ] ; then
-			ADDRESS=dhcp
-		fi
-		;;
-	W)	if [ "$WIRELESS" == "Y" ]; then
-			WIRELESS=N
-		else
-			WIRELESS=Y
-		fi
-		;;
-	M)	WIRELESS_MODE=`$DIALOG --no-cancel --title  "Wireless Modes" \
-				       --default-item "${WIRELESS_MODE:-Managed}" \
-				       --menu "" 0 0 0 \
-				       "Managed" "" \
-				       "Ad-Hoc"  ""`
-		;;
+    case $CHOICE in
+      A)
+        if [ "$AUTO" == "Y" ]; then
+          AUTO=N
+        else
+          AUTO=Y
+        fi
+        ;;
+      L)  MODULE=`inputbox "Enter optional kernel module to load" "$MODULE"`
+        ;;
+      Z)  MANAGER=`$DIALOG --no-cancel --title "Select a network configuration method" \
+                   --default-item "${MANAGER:-ifplugd}" \
+                   --menu "" 0 0 0 \
+                   "manual" "do not use ifplugd or wpa_supplicant" \
+                   "ifplugd" "use ifplugd" \
+                    "wpa_supplicant" "Use both ifplugd and wpa_supplicant"`
+        if [ "$MANAGER" == "wpa_supplicant" ] ; then
+          WIRELESS=Y
+        fi
+        if [ "$MANAGER" != "manual" ] ; then
+          ADDRESS=dhcp
+        fi
+        ;;
+      W)
+        if [ "$WIRELESS" == "Y" ]; then
+          WIRELESS=N
+        else
+          WIRELESS=Y
+        fi
+        ;;
+      M)  WIRELESS_MODE=`$DIALOG --no-cancel --title  "Wireless Modes" \
+                         --default-item "${WIRELESS_MODE:-Managed}" \
+                         --menu "" 0 0 0 \
+                         "Managed" "" \
+                         "Ad-Hoc"  ""`
+        ;;
+      K)  WIRELESS_KEY=`inputbox "Enter WEP 64/128 bit key" "$WIRELESS_KEY"`
+        ;;
+      R)  WIRELESS_RATE=`inputbox "Enter wireless rate" "$WIRELESS_RATE"`
+        ;;
+      E)  WIRELESS_ESSID=`inputbox "Enter ESSID of the wireless network" "$WIRELESS_ESSID"`
+        ;;
+      D)
+        if [ "$ADDRESS" == "dhcp" ]; then
+          unset ADDRESS
+        else
+          ADDRESS=dhcp
+        fi
+        ;;
+      C)  DHCP_CLIENT=`$DIALOG --no-cancel --title "Select a DHCP client" \
+                       --default-item "${DHCP_CLIENT:-dhcpcd}" \
+                       --menu "" 0 0 0 \
+                       "dhcpcd" "" \
+                       "dhclient" ""`
+        case $DHCP_CLIENT in
+          dhclient)
+            if ! module_installed dhcp; then
+              msgbox "Warning" "$DHCP_MODULE_MESSAGE dhcp" 10
+            fi ;;
+          dhcpcd)
+            if ! module_installed dhcpcd; then
+              msgbox "Warning" "$DHCP_MODULE_MESSAGE dhcpcd" 10
+            fi ;;
+        esac
+        ;;
+      O)  DHCP_OPTIONS=`inputbox "Enter extra options passed to $DHCP_CLIENT" "${DHCP_OPTIONS}"`
+        ;;
+      I)  ADDRESS=`inputbox "Enter IP address" "$ADDRESS"`
+        ;;
+      N)  NETMASK=`inputbox "Enter netmask" "$NETMASK"`
+        ;;
+      B)  BROADCAST=`inputbox "Enter broadcast address" "$BROADCAST"`
+        ;;
+      F)  IFCONF_OPTS=`inputbox "Enter extra options passed to ifconfig" "$IFCONF_OPTS"`
+        ;;
+    esac
 
-	K)	WIRELESS_KEY=`inputbox "Enter WEP 64/128 bit key" "$WIRELESS_KEY"`
-		;;
-	R)	WIRELESS_RATE=`inputbox "Enter wireless rate" "$WIRELESS_RATE"`
-		;;
-	E)	WIRELESS_ESSID=`inputbox "Enter ESSID of the wireless network" "$WIRELESS_ESSID"`
-		;;
-	D)	if [ "$ADDRESS" == "dhcp" ]; then
-			unset ADDRESS
-		else
-			ADDRESS=dhcp
-		fi
-		;;
-	C)	DHCP_CLIENT=`$DIALOG --no-cancel --title "Select a DHCP client" \
-				     --default-item "${DHCP_CLIENT:-dhcpcd}" \
-				     --menu "" 0 0 0 \
-				     "dhcpcd" "" \
-				     "dhclient" ""`
-		case $DHCP_CLIENT in
-		dhclient) if ! module_installed dhcp; then
-				msgbox "Warning" "$DHCP_MODULE_MESSAGE dhcp" 10
-			fi ;;
-		dhcpcd) if ! module_installed dhcpcd; then
-				msgbox "Warning" "$DHCP_MODULE_MESSAGE dhcpcd" 10
-			fi ;;
-		esac
-		;;
-	O)	DHCP_OPTIONS=`inputbox "Enter extra options passed to $DHCP_CLIENT" "${DHCP_OPTIONS}"`
-		;;
-	I)	ADDRESS=`inputbox "Enter IP address" "$ADDRESS"`
-		;;
-	N)	NETMASK=`inputbox "Enter netmask" "$NETMASK"`
-		;;
-	B)	BROADCAST=`inputbox "Enter broadcast address" "$BROADCAST"`
-		;;
-	F)	IFCONF_OPTS=`inputbox "Enter extra options passed to ifconfig" "$IFCONF_OPTS"`
-		;;
-	esac
+    # save the config
+    cp -p $CONFIG_DIR/$DEVICE /tmp/lnet.$DEVICE
+    if_template
 
-	# save the config
-	cp -p $CONFIG_DIR/$DEVICE /tmp/lnet.$DEVICE
-	if_template
-
-done
+  done
 }
 
 . /etc/lunar/config
