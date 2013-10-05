@@ -292,19 +292,15 @@ function ethernet_menu() {
 
 function ethernet_manage_menu() {
   NO_INTERFACES="There are no interfaces to be listed. You may want to configure a device first."
-  FORMAT="%-6s %-15s"
+  FORMAT="%-15s %-6s"
 
   while true; do
     unset INTERFACES STR
     COUNTER=0
     LIST=()
-    for DEVICE in $(get_dev_list); do
+    for DEVICE in $(get_configured_dev_list); do
       INTERFACES[$COUNTER]=$DEVICE
-      STATUS=$(get_dev_status $DEVICE)
-      STR=$(printf "$FORMAT" $STATUS $DEVICE)
-      if [ ! -f "$CONFIG_DIR/$DEVICE" ]; then
-        STR+=" (unconfigured)"
-      fi
+      STR=$(printf "$FORMAT" $DEVICE $(get_dev_status $DEVICE))
       LIST+=($COUNTER "$STR")
       (( COUNTER++ ))
     done
