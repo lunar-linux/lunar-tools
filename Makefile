@@ -9,7 +9,7 @@ VERSION = 2013.2
 
 bin_PROGS = prog/run-parts
 sbin_PROGS = prog/lids prog/luser prog/lnet prog/lservices \
-	prog/lmodules prog/clad prog/ltime
+	prog/lmodules prog/clad prog/ltime prog/installkernel
 DOCS = README COPYING
 MANPAGES = $(shell ls -1 man/*)
 
@@ -17,8 +17,6 @@ all:
 
 .PHONY:
 install: .PHONY
-	install -d $(DESTDIR)/sbin
-	install -m755 prog/installkernel $(DESTDIR)/sbin/
 	install -d $(DESTDIR)/usr/bin
 	for PROGRAM in ${bin_PROGS} ; do \
 	    install -m755 $${PROGRAM} $(DESTDIR)/usr/bin/ ; \
