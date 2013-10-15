@@ -451,6 +451,11 @@ EOF
         (( COUNTER++ ))
       done
 
+      if [ ${#LIST[@]} -eq 0 ]; then
+        msgbox "Network devices" "No network devices found or all network devices have already been configured."
+        return
+      fi
+
       PROMPT="Select an interface to configure"
       RESULT=`$DIALOG  --title "Setup network interface"       \
               --ok-label "Select"            \
