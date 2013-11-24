@@ -472,6 +472,7 @@ EOF
           DEVICE=${INTERFACES[$RESULT]}
           AUTO="Y"
           ADDRESS="dhcp"
+          DHCP_CLIENT="dhcpcd"
           if_template
           . $CONFIG_DIR/$$DEVICE
           ;;
