@@ -220,7 +220,12 @@ function hostname_config()
    # Assume systemd is running
    if [ -n "$SYSTEMDUNITDIR" ]; then
      clear
-     hostnamectl set-hostname "$HOSTNAME"
+     # We can't access dbus during installation thus we manually set hostname
+     if [[ -n "$LUNAR_INSTALL" && -n "$HOSTNAME" ]]; then
+       echo "$HOSTNAME" > /etc/hostname
+     else
+       hostnamectl set-hostname "$HOSTNAME"
+     fi
    else
      if [ -n "$HOSTNAME" ]; then
        echo "$HOSTNAME" > /etc/hostname
