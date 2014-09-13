@@ -14,11 +14,7 @@
 show_timezones()
 {
     for ITEM in `LANG=C ls --hide=[a-z]* $LOCALTIME/$1`; do
-        if [ -n "$1" ]; then
-            echo "$1/$ITEM"
-        else
-            echo "$ITEM"
-        fi
+        echo "$ITEM"
         if [ -d $LOCALTIME/$1/$ITEM ]; then
             echo "Directory"
         else
@@ -36,16 +32,24 @@ timezone_menu()
     ZONE=""
 
     while
-      TIMEZONES=`show_timezones $ZONE`  &&
-      ZONE=`$DIALOG  --title  "$TITLE"  \
+      TIMEZONES=`show_timezones ${ZDIR:-$ZONE}`  &&
+      if [ -n "$ZDIR" ]; then
+        T="$TITLE - $ZDIR"
+      fi
+      ZONE=`$DIALOG  --title  "${T:-$TITLE}"  \
                      --menu             \
                      "$HELP"            \
                      0 0 0              \
                      $TIMEZONES`        &&
-      [ -d $LOCALTIME/$ZONE ]
+      [[ -d $LOCALTIME/$ZDIR/$ZONE || -d $LOCALTIME/$ZONE ]] &&
+      ZDIR+="$ZONE/"
       do
         true
     done
+
+    if [ -n "$ZDIR" ]; then
+      ZONE="$ZDIR$ZONE"
+    fi
 
     if [ -f "$LOCALTIME/$ZONE" ]; then
         ln -sf $LOCALTIME/$ZONE /etc/localtime
