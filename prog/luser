@@ -6,6 +6,8 @@
 ############################################################
 #                                                          #
 # Copyright Auke Kok 2003 under GPLv2                      #
+# Portions copyright Stefan Wold 2022 under GPLv2          #
+# Portions copyright Dave Brown 2023 under GPLv2           #
 #                                                          #
 ############################################################
 
@@ -136,6 +138,27 @@ select_shell_menu() {
   fi
 }
 
+set_user_password() {
+  local PASSWORD PASSWORD2 USERNAME
+
+  USERNAME=$1
+
+  while [ -z "$PASSWORD" ]; do
+    PASSWORD=$($DIALOG --insecure --passwordbox "Set password for user '$USERNAME'\n\nNew Password:" 0 0) || return 1
+    PASSWORD2=$($DIALOG --insecure --passwordbox "Set password for user '$USERNAME'\n\nVerify Password:" 0 0) || return 1
+
+    if [[ "$PASSWORD" == "$PASSWORD2" ]]; then
+      passwd $USERNAME < <(printf "%s\n%s" "$PASSWORD" "$PASSWORD") &> /dev/null
+    else
+      msgbox "Passwords did not match, please enter again."
+      unset PASSWORD PASSWORD2
+    fi
+  done
+
+  R_OK=\\Z2
+  DEFAULT=O
+}
+
 
 edit_user_data() {
  while true ; do
@@ -207,9 +230,7 @@ edit_user_data() {
         clear
 	echo "Changing password for \"$UNM\":"
 	echo ""
-        passwd $UNM
-	echo "Press enter to return..."
-        read
+        set_user_password $UNM
       elif [ "$result" == "Empty" ] ; then
         NEWSHADOWSTR=$(getent shadow $UNM | awk -F: '{print $1":x:"$3":"$4":"$5":"$6":"$7":"$8":"$9}')
         exec_command "cp /etc/shadow /etc/shadow- && grep -v \"^$UNM:\" /etc/shadow- > /etc/shadow && echo \"$NEWSHADOWSTR\" >> /etc/shadow"
