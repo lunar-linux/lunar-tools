@@ -1,0 +1,130 @@
+#!/bin/bash
+
+CONFIG_DIR=/etc/config.d/network
+CONFIG_DIR=/etc/systemd/network
+
+msgbox() {
+    if [ -z "$3" ]
+    then
+        H=10
+    else
+        H=$3
+    fi
+    $DIALOG --title "$1" --msgbox "$2" $H 50
+}
+
+inputbox() {
+    $DIALOG --nocancel --inputbox "$1" 0 0 "$2"
+}
+
+confirm() {
+    $DIALOG $2 --yesno "$1" 8 50
+}
+
+get_configured_dev_list() {
+    local device_file
+
+    for device_file in $CONFIG_DIR/*.network
+    do
+        grep -A 2 '^\[Match\]' $device_file | grep '^Name=' | cut -f2- -d=
+    done
+}
+
+get_dev_status() {
+	if ip -j -p link show $1 | grep -q '^ *"flags":.*"UP"'
+	then
+        echo '[ UP ]'
+	else
+        echo '[DOWN]'
+    fi
+}
+
+hostname_config() {
+    [ -f /etc/hostname ] && HOSTNAME=$(cat /etc/hostname)
+
+    HOSTNAME=$(inputbox "Enter this system's host name" "$HOSTNAME")
+    # If we're in the installer, just write the hostname file
+    if [[ -n "$LUNAR_INSTALL" && -n "$HOSTNAME" ]]
+    then
+        echo "$HOSTNAME" > /etc/hostname
+    else
+        hostnamectl set-hostname "$HOSTNAME"
+    fi
+}
+
+dns_config() {
+    local interface=$1
+
+    RESOLVED_CONF=/etc/systemd/resolved.conf
+
+    cp -p $RESOLVED_CONF /tmp/lnet/resolved.conf
+
+    DOMAIN_PROMPT="Enter Primary local Domain name"
+    DNS1_PROMPT="Enter Primary DNS Server IP Address"
+    DNS2_PROMPT="Enter Secondary DNS Server IP Address"
+    SEARCH_PROMPT="Enter (optionally) domain name search order"
+
+}
+
+main() {
+    while true
+    do
+        COUNTER=0
+        unset LIST
+        unset MANAGE
+        for DEVICE in $(get_configured_dev_list)
+        do
+            if [ -L $CONFIG_DIR/$DEVICE ]
+            then
+                continue
+            fi
+            STATUS=$(get_dev_status $DEVICE)
+            INTERFACES[$COUNTER]=$DEVICE
+            LIST+="$COUNTER\nEdit device $DEVICE    $STATUS\n"
+            ((COUNTER++))
+        done
+
+        if (( COUNTER > 0 ))
+        then
+            MANAGE="M\nManage network devices\n"
+        fi
+		COMMAND=`$DIALOG  --title "Network configuration" \
+						  --ok-label "Select"            \
+						  --cancel-label "Exit"          \
+						  --menu                         \
+						  ""                             \
+						  0 0 0                          \
+						  $(echo -en $LIST)              \
+						  "A"  "Add a network device"    \
+						  "D"  "Setup DNS configuration" \
+						  "N"  "Setup host and domain name" \
+						  "G"  "Setup global Gateway" \
+						  $(echo -en $MANAGE)` || return
+		case "$COMMAND" in
+            [0-9]*) ethernet_menu ${INTERFACES[$COMMAND]} ;;
+            A)      ethernet_config                       ;;
+            D)      dns_config                            ;;
+            N)      hostname_config                       ;;
+            M)      ethernet_manage_menu                  ;;
+		esac
+    done
+}
+
+. /etc/lunar/config
+[ -n "$BOOTSTRAP" ] && . $BOOTSTRAP
+
+export IFS="$TAB_ENTER_IFS"
+DIALOG="dialog
+--backtitle
+Lunar Network Management Utility
+--stdout"
+
+# Check if we have systemd and that it is running
+if module_installed systemd && [ -d /run/systemd ]; then
+    SYSTEMDUNITDIR=$(pkg-config systemd --variable=systemdsystemunitdir)
+fi
+
+if [  "${BASH_SOURCE[0]}" == "$0" ]
+then
+    main
+fi
