@@ -402,11 +402,6 @@ DIALOG="dialog
 Lunar Network Management Utility
 --stdout"
 
-# Check if we have systemd and that it is running
-if module_installed systemd && [ -d /run/systemd ]; then
-    SYSTEMDUNITDIR=$(pkg-config systemd --variable=systemdsystemunitdir)
-fi
-
 if [  "${BASH_SOURCE[0]}" == "$0" ]
 then
     main
