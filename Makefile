@@ -12,6 +12,7 @@ sbin_PROGS = prog/lids prog/luser prog/lnet prog/lservices \
 	prog/lmodules prog/clad prog/ltime prog/installkernel \
     prog/lnet2
 lnet_LIBS = lib/lnet/bootstrap \
+            lib/lnet/config_file.lnet.sh \
             lib/lnet/device_config.lnet.sh \
             lib/lnet/devices.lnet.sh \
             lib/lnet/dialog.lnet.sh \
