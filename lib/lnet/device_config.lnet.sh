@@ -68,44 +68,31 @@ get_dev_config() {
     local Netmask=255.255.255.255
     local Gateway=0.0.0.0
     local CIDR
+    local DNS1
+    local DNS2
+    local DNS
     local masklen=32
 
     if [ -f $config_file ]
     then
-        if grep -A 2 '[Network]' $config_file | grep -q DHCP
+        if get_config_value Network DHCP $config_file >/dev/null
         then
             DHCP_enabled=true
         else
             DHCP_enabled=false
-            CIDR=$(grep -F -A 10 '[Network]' $config_file |
-                      grep '^ *Address=' |
-                      cut -f2 -d=)
-            if [ -n "$CIDR" ]
+            if CIDR=$(get_config_value Network Address $config_file)
             then
                 masklen=${CIDR#*/}
                 IP_Address=${CIDR%/*}
                 Netmask=$(cidr2mask $masklen)
+
             fi
 
-            Gateway=$(grep -F -A 10 '[Network]"' $config_file |
-                      grep '^ *Gateway=' |
-                      cut -f2 -d=)
+            Gateway=$(get_config_value Network Gateway $config_file)
 
-            DNS1=$(grep -F -A 10 '[Network]"' $config_file |
-                    grep '^ *DNS=' |
-                    head -1 |
-                    cut -f1 -d=)
-            DNS2=$(grep -F -A 10 '[Network]"' $config_file |
-                    grep '^ *DNS=' |
-                    tail +2 |
-                    head -1 |
-                    cut -f1 -d=)
-
-            if [ "$DNS2" == "$DNS1" ]
-            then
-                DNS2=""
-            fi
-
+            DNS=( $(get_config_value Network DNS) )
+            DNS1=${DNS[0]}
+            DNS2=${DNS[1]}
         fi
     fi
 
