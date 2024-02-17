@@ -9,14 +9,27 @@ VERSION = 2024.1
 
 bin_PROGS = prog/run-parts
 sbin_PROGS = prog/lids prog/luser prog/lnet prog/lservices \
-	prog/lmodules prog/clad prog/ltime prog/installkernel
+	prog/lmodules prog/clad prog/ltime prog/installkernel \
+    prog/lnet2
+lnet_LIBS = lib/lnet/bootstrap \
+            lib/lnet/device_config.lnet.sh \
+            lib/lnet/devices.lnet.sh \
+            lib/lnet/dialog.lnet.sh \
+            lib/lnet/menus.lnet.sh \
+            lib/lnet/netmasks.lnet.sh
 DOCS = README COPYING
 MANPAGES = $(shell ls -1 man/*)
+
+lnet_LIBS_dir = /var/lib/lunar/functions/lnet
 
 all:
 
 .PHONY:
 install: .PHONY
+	install -d $(DESTDIR)$(lnet_LIBS_dir)
+	for LIB in $(lnet_LIBS) ; do \
+	    install -m644 $${LIB} $(DESTDIR)$(lnet_LIBS_dir) ; \
+	done
 	install -d $(DESTDIR)/usr/bin
 	for PROGRAM in ${bin_PROGS} ; do \
 	    install -m755 $${PROGRAM} $(DESTDIR)/usr/bin/ ; \
