@@ -12,7 +12,7 @@ hostname_config_menu() {
     fi
 }
 
-netdev_add_menu() {
+dev_add_menu() {
     local devices=()
     local devices_menu=()
     local dev
@@ -43,15 +43,17 @@ netdev_add_menu() {
                      "${devices_menu[@]}") || return
     dev=${devices[$[result-1]]}
 
-    netdev_config_menu $dev
+    dev_config_menu $dev
 }
 
-netdev_config_menu() {
+dev_config_menu() {
     local device=$1
 
     local choice
 
-    eval "$(get_netdev_config $device)"
+    local config_file="$CONFIG_DIR/${device}.network"
+
+    eval "$(get_dev_config $device)"
 
     while true
     do
@@ -94,10 +96,10 @@ netdev_config_menu() {
 
         if $DHCP_enabled
         then
-            netdev_config $device dhcp
+            set_dev_config $device dhcp
         else
             local masklen=$(mask2cdr $Netmask)
-            netdev_config $device static $IP_Address/$masklen $Gateway "$DNS1" "$DNS2"
+            set_dev_config $device static $IP_Address/$masklen $Gateway "$DNS1" "$DNS2"
         fi
     done
 }
@@ -135,8 +137,8 @@ main_menu() {
 						  "N"  "Setup host name"            \
 						  $(echo -en $MANAGE)) || return
 		case "$COMMAND" in
-            [0-9]*) netdev_config_menu ${INTERFACES[$COMMAND]} ;;
-            A)      netdev_add_menu                            ;;
+            [0-9]*) dev_config_menu ${INTERFACES[$COMMAND]}    ;;
+            A)      dev_add_menu                               ;;
             D)      dns_config_menu                            ;;
             N)      hostname_config_menu                       ;;
             M)      ethernet_manage_menu                       ;;

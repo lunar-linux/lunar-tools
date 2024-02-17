@@ -1,5 +1,5 @@
 # Configure network device
-set_netdev_config() {
+set_dev_config() {
     local device
     local config_type
 
@@ -51,15 +51,15 @@ set_netdev_config() {
     fi
 }
 
-# Get current netdev configuration
+# Get current network device configuration
 #
 # Outputs name=value pairs which can be used in an "eval" statement, like
 #
-#    eval $(get_netdev_config enp3s0)
+#    eval $(get_dev_config enp3s0)
 #
 # If no /etc/systemd/network/${device}.network file is found,
 # it outputs a set of defaults to set up the device with DHCP.
-get_netdev_config() {
+get_dev_config() {
     local device=$1
 
     local config_file="$CONFIG_DIR/${device}.network"
