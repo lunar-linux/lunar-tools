@@ -2,8 +2,16 @@
 
 CONFIG_DIR=/etc/config.d/network
 CONFIG_DIR=/etc/systemd/network
-LNET_FUNCTIONS=/var/lib/lunar/functions/lnet
-LNET_BOOTSTRAP=$FUNCTIONS/bootstrap
+
+# Check whether we're running in dev or release mode
+if [ -d $(basename $0)/../lib/lnet ]
+then
+    LNET_FUNCTIONS=$(cd $(basename $0/../lib/lnet) && pwd)
+else
+    LNET_FUNCTIONS=/var/lib/lunar/functions/lnet
+fi
+
+LNET_BOOTSTRAP=$LNET_FUNCTIONS/bootstrap
 
 . /etc/lunar/config
 [ -n "$BOOTSTRAP" ] && . $BOOTSTRAP
