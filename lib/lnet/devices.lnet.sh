@@ -48,6 +48,7 @@ get_unconfigured_dev_list() {
     fi
 }
 
+# Get whether device is up or down
 get_dev_status() {
     local dev=$1
 
@@ -59,3 +60,22 @@ get_dev_status() {
     fi
 }
 
+# Bring device up (if configured)
+dev_up() {
+    local dev=$1
+
+    if [ -f $CONFIG_DIR/${dev}.network ]
+    then
+        networkctl up $dev
+    fi
+}
+
+# Bring device down (if configured)
+dev_down() {
+    local dev=$1
+
+    if [ -f $CONFIG_DIR/${dev}.network ]
+    then
+        networkctl down $dev
+    fi
+}
