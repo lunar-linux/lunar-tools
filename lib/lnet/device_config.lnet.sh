@@ -93,7 +93,7 @@ get_dev_config() {
 
             Gateway=$(get_config_value Network Gateway $config_file)
 
-            DNS=( $(get_config_value Network DNS) )
+            DNS=( $(get_config_value Network DNS $config_file) )
             DNS1=${DNS[0]}
             DNS2=${DNS[1]}
         fi
