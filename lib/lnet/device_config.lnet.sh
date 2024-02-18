@@ -28,16 +28,19 @@ set_dev_config() {
     if [ $config_type == "static" ]
     then
         local ipaddr=$3
-        local gateway=$4
-        local dns1=$5
-        local dns2=$6
+        local netmask=$4
+        local gateway=$5
+        local dns1=$6
+        local dns2=$7
+
+        local masklen=$(mask2cdr $netmask)
 
         {
             echo '[Match]'
             echo "Name=$device"
             echo
             echo '[Network]'
-            echo "Address=$ipaddr"
+            echo "Address=$ipaddr/$masklen"
             echo "Gateway=$gateway"
             if [ -n "$dns1" ]
             then
