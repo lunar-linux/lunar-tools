@@ -98,8 +98,7 @@ dev_config_menu() {
         then
             set_dev_config $device dhcp
         else
-            local masklen=$(mask2cdr $Netmask)
-            set_dev_config $device static $IP_Address/$masklen $Gateway "$DNS1" "$DNS2"
+            set_dev_config $device static $IP_Address $Netmask $Gateway "$DNS1" "$DNS2"
         fi
     done
 }
