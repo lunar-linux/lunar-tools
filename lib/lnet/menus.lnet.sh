@@ -46,6 +46,117 @@ dev_add_menu() {
     dev_config_menu $dev
 }
 
+dev_edit_menu() {
+    local device=$1
+
+    PROMPT="Actions for interface $device\nDevice is: $(get_dev_status $device)"
+    COMMAND=`$DIALOG  --title "Modify device $device" \
+                      --ok-label "Select"             \
+                      --cancel-label "Exit"           \
+                      --menu                          \
+                      $PROMPT                         \
+                      0 0 0                           \
+                      'C'  'Reconfigure'              \
+                      'M'  'Manage'                   \
+                      'D'  'Delete'`
+
+    if [ $? != 0 ] ; then
+      return
+    fi
+
+    case $COMMAND  in
+        C) dev_config_menu $device ;;
+        M) dev_manage_menu $device ;;
+        D)
+            if confirm "Are you sure you wish to delete $device?" "--defaultno"; then
+                delete_dev_config $device
+            fi
+        ;;
+    esac
+}
+
+# Manage all the devices
+devices_manage_menu() {
+    local DEVICE
+    local STATUS
+    local INTERFACES
+    local LIST
+    local COUNTER
+
+    while true
+    do
+        LIST=()
+        COUNTER=0
+        for DEVICE in $(get_configured_dev_list)
+        do
+            STATUS=$(get_dev_status $DEVICE)
+            INTERFACES[$COUNTER]=$DEVICE
+            STR=$(printf "%-15s %-6s" $DEVICE $(get_dev_status $DEVICE))
+            LIST+=("$COUNTER" "$STR")
+            ((COUNTER++))
+        done
+
+        if (( COUNTER == 0 ))
+        then
+            msgbox "Manage Devices" \
+                   "There are no interfaces to be listed. You may want to configure a device first." \
+                   7
+            return
+        fi
+
+
+        DEVICE="$($DIALOG --title "Manage devices" \
+                         --ok-label "Select" \
+                         --cancel-label "Return" \
+                         --menu \
+                         "Select a device to manage" \
+                         0 0 0 \
+                         "${LIST[@]}")" || return
+        dev_manage_menu ${INTERFACES[$DEVICE]}
+    done
+}
+
+# Manage a single device
+dev_manage_menu() {
+    local device=$1
+
+    while true
+    do
+        STATUS=$(get_dev_status $1)
+        if [[ "$STATUS" == "[ UP ]" ]]
+        then
+            TOGGLE="Stop"
+        else
+            TOGGLE="Start"
+        fi
+
+        COMMAND=$($DIALOG --title "Manage Device $device"     \
+                          --cancel-label "Return"             \
+                          --menu "Device $device is: $STATUS" \
+                          0 0 0                               \
+                          "S" "$TOGGLE Device"                \
+                          "R" "Restart Device") || return
+        case "$COMMAND" in
+            S)
+                case "$TOGGLE" in
+                    Start)
+                        dev_up $device
+                    ;;
+
+                    Stop)
+                        dev_down $device
+                    ;;
+                esac
+
+                ;;
+            R)
+                dev_down $device
+                dev_up $device
+            ;;
+        esac
+    done
+}
+
 dev_config_menu() {
     local device=$1
 
@@ -136,11 +247,11 @@ main_menu() {
 						  "N"  "Setup host name"            \
 						  $(echo -en $MANAGE)) || return
 		case "$COMMAND" in
-            [0-9]*) dev_config_menu ${INTERFACES[$COMMAND]}    ;;
+            [0-9]*) dev_edit_menu ${INTERFACES[$COMMAND]}      ;;
             A)      dev_add_menu                               ;;
             D)      dns_config_menu                            ;;
             N)      hostname_config_menu                       ;;
-            M)      ethernet_manage_menu                       ;;
+            M)      devices_manage_menu                       ;;
 		esac
     done
 }
