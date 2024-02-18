@@ -106,3 +106,12 @@ get_dev_config() {
          DNS1=$DNS1 \
          DNS2=$DNS2
 }
+
+# Deletes configuration for a device
+delete_dev_config() {
+    local device=$1
+
+    local config_file="$CONFIG_DIR/${device}.network"
+
+    rm $config_file
+}
