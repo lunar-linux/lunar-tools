@@ -41,7 +41,10 @@ get_unconfigured_dev_list() {
 
     if ((${#interfaces} > 0))
     then
-        echo "${interfaces[@]}"
+        for interface in ${interfaces[@]}
+        do
+            echo "$interface"
+        done
         return 0
     else
         return 1
