@@ -63,3 +63,15 @@ wifi_find_aps() {
             }
         }'
 }
+
+# wifi_ap_password <AP> <password>
+#
+# Creates a wpa_supplicant fragment
+wifi_ap_password() {
+    local device=$1
+    local AP=$2
+    local PASS=$3
+
+    wpa_passphrase "$AP" "$PASS" >> /etc/wpa_supplicant/wpa_supplicant-${device}.conf
+    chmod 600 /etc/wpa_supplicant/wpa_supplicant-${device}.conf
+}
