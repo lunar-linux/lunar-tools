@@ -9,8 +9,7 @@ VERSION = 2024.1
 
 bin_PROGS = prog/run-parts
 sbin_PROGS = prog/lids prog/luser prog/lnet prog/lservices \
-	prog/lmodules prog/clad prog/ltime prog/installkernel \
-    prog/lnet2
+	prog/lmodules prog/clad prog/ltime prog/installkernel
 lnet_LIBS = lib/lnet/bootstrap \
             lib/lnet/config_file.lnet.sh \
             lib/lnet/device_config.lnet.sh \
