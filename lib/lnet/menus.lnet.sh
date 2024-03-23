@@ -117,7 +117,48 @@ wifi_scan_menu() {
                      0 0 0 \
                      "${menu[@]}") || return
 
-    echo ${aps[$result]}
+    echo ${aps[$result]} ${ap_flags[$result]}
+}
+
+wifi_get_password() {
+    local ap=$1
+    local PASSWORD
+
+    PASSWORD=$($DIALOG --insecure \
+                       --cancel-label "Show password" \
+                        --passwordbox "Enter password for AP '$ap'" 0 0) ||
+    PASSWORD=$($DIALOG --inputbox "Enter password for AP '$ap'" 0 0)
+
+    echo $PASSWORD
+}
+
+wifi_select_menu() {
+    local device=$1
+    eval local ap_details=($(wifi_scan_menu $device))
+    local ap_flags
+    local ap_password
+
+    case "${ap[0]}" in
+        [0-9a-f][0-9a-f]:[0-9a-f][0-9a-f]:[0-9a-f][0-9a-f]:*) # anonymous AP
+            ap_name="${ap_details[0]}"
+            ap_flags="${ap_details[1]}"
+        ;;
+
+        *)
+            ap_name="${ap_details[0]}"
+            ap_flags="${ap_details[2]}"
+        ;;
+    esac
+
+    wifi_create_config $device
+
+    if [[ $ap_flags =~ WEP || $ap_flags =~ WPA ]]
+    then
+        ap_password=$(wifi_get_password $ap_name)
+        wifi_ap_password "$device" "$ap_name" "$ap_password"
+    fi
+
+    wifi_activate "$device"
 }
 
 dev_add_menu() {
@@ -273,6 +314,14 @@ dev_config_menu() {
     local config_file="$CONFIG_DIR/${device}.network"
 
     eval "$(get_dev_config $device)"
+
+    # Before starting to worry about IP addresses and DHCP for a WiFi device,
+    # make sure you connect to an AP first.
+
+    if $WiFi_Device
+    then
+        wifi_select_menu $device
+    fi
 
     while true
     do
