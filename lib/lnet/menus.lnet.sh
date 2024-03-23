@@ -18,59 +18,52 @@ wifi_strength_string() {
     local wifi_strength_str
     declare -a wifi_strength_str
     wifi_strength_str=(
-        âââââââ
-        ââââââ_
-        âââââ__
-        ââââ___
-        âââ____
-        ââ_____
-        â______
-        _______
+        "[OOOOOOO]"
+        "[OOOOOO.]"
+        "[OOOOO..]"
+        "[OOOO...]"
+        "[OOO....]"
+        "[OO.....]"
+        "[O......]"
     )
 
-    if ((wifi_strength > -50))
+    if ((wifi_strength > -55))
     then
         echo "${wifi_strength_str[0]}"
         return
     fi
 
-    if ((wifi_strength > -55))
+    if ((wifi_strength > -60))
     then
         echo "${wifi_strength_str[1]}"
         return
     fi
 
-    if ((wifi_strength > -60))
+    if ((wifi_strength > -65))
     then
         echo "${wifi_strength_str[2]}"
         return
     fi
 
-    if ((wifi_strength > -65))
+    if ((wifi_strength > -70))
     then
         echo "${wifi_strength_str[3]}"
         return
     fi
 
-    if ((wifi_strength > -70))
+    if ((wifi_strength > -75))
     then
         echo "${wifi_strength_str[4]}"
         return
     fi
 
-    if ((wifi_strength > -75))
+    if ((wifi_strength > -80))
     then
         echo "${wifi_strength_str[5]}"
         return
     fi
 
-    if ((wifi_strength > -80))
-    then
-        echo "${wifi_strength_str[6]}"
-        return
-    fi
-
-    echo "${wifi_strength_str[7]}"
+    echo "${wifi_strength_str[6]}"
 }
 
 wifi_scan_menu() {
@@ -78,16 +71,40 @@ wifi_scan_menu() {
     local index=0
     local menu
     local aps
+    local ap_falgs
     declare -a menu
     declare -a aps
+    declare -a ap_flags
 
-    wifi_sort_aps $device | while read ssid mac flags level
+    local tempfile=$(mktemp lnet_wifiXXXX)
+
+    menu=()
+    aps=()
+    ap_flags=()
+
+    wifi_sort_aps $device > $tempfile
+
+    while read line
     do
+        eval line_items=($(echo $line))
+        ssid=${line_items[0]}
+        mac=${line_items[1]}
+        flags=${line_items[2]}
+        level=${line_items[3]}
+
+        if [ -z "$ssid" ]
+        then
+            ssid=" "
+        fi
+
         level_str=$(wifi_strength_string $level)
         menu+=($index "$(printf '%-24s %s\n' $ssid $level_str)")
         aps+=($(printf '%s %s' $ssid $mac))
+        ap_flags+=($flags)
         ((index++))
-    done
+    done < $tempfile
+
+    rm $tempfile
 
     local PROMPT="Select wifi AP"
     result=$($DIALOG --title "Select wifi AP" \
