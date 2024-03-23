@@ -56,6 +56,24 @@ wifi_sort_aps() {
     done
 }
 
+wifi_create_config() {
+    local device=$1
+    local configfile=/etc/wpa_supplicant/wpa_supplicant-${device}.conf
+
+    if [ ! -f $configfile ]
+    then
+        if [ ! -d $(dirname $configfile) ]
+        then
+            mkdir $(dirname $configfile)
+        fi
+    fi
+
+    echo "ctrl_interface=/run/wpa_supplicant" > $configfile
+    echo "ctrl_interface_group=0" >> $configfile
+    echo "update_config=1" >> $configfile
+    echo >> $configfile
+}
+
 # wifi_ap_password <device> <AP> <password>
 #
 # Creates a wpa_supplicant fragment
@@ -66,4 +84,15 @@ wifi_ap_password() {
 
     wpa_passphrase "$AP" "$PASS" >> /etc/wpa_supplicant/wpa_supplicant-${device}.conf
     chmod 600 /etc/wpa_supplicant/wpa_supplicant-${device}.conf
+}
+
+wifi_activate() {
+    local device=$1
+    local configfile=/etc/wpa_supplicant/wpa_supplicant-${device}.conf
+
+    if [ -f $configfile ]
+    then
+        systemctl enable wpa_supplicant@${device}
+        systemctl start wpa_supplicant@${device}
+    fi
 }
