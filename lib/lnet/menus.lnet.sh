@@ -82,11 +82,13 @@ wifi_scan_menu() {
     aps=()
     ap_flags=()
 
+    $DIALOG --infobox "Scanning for wi-fi APs..." 0 0
+
     wifi_sort_aps $device > $tempfile
 
     while read line
     do
-        eval line_items=($(echo $line))
+        eval line_items=($(echo $line) )
         ssid=${line_items[0]}
         mac=${line_items[1]}
         flags=${line_items[2]}
@@ -114,6 +116,8 @@ wifi_scan_menu() {
                      $PROMPT \
                      0 0 0 \
                      "${menu[@]}") || return
+
+    echo ${aps[$result]}
 }
 
 dev_add_menu() {
