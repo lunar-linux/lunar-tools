@@ -75,6 +75,13 @@ get_dev_config() {
     local DNS2
     local DNS
     local masklen=32
+    local WiFi_Device=false
+
+    case "$device" in
+        wl*)
+            WiFi_Device=true
+        ;;
+    esac
 
     if [ -f $config_file ]
     then
@@ -104,7 +111,8 @@ get_dev_config() {
          Netmask=$Netmask \
          Gateway=$Gateway \
          DNS1=$DNS1 \
-         DNS2=$DNS2
+         DNS2=$DNS2 \
+         WiFi_Device=$WiFi_Device
 }
 
 # Deletes configuration for a device
