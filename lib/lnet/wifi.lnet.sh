@@ -31,7 +31,11 @@ wifi_find_aps() {
             printf "WIFI_LEVEL[%d]=\"%s\"\n", cell_num, wifi_level
 
             cell_num++
-        }'
+        }
+
+	END {
+	    printf("local wifi_count=%d\n",cell_num-1)
+	}'
 }
 
 # wifi_sort_aps
@@ -43,10 +47,10 @@ wifi_sort_aps() {
 
     eval $(wifi_find_aps $device)
 
-    for i in $(eval echo {0..$[${#WIFI_LEVEL[@]}-1]})
+    for i in $(seq 0 $wifi_count)
     do
         echo ${WIFI_LEVEL[$i]} ${i}
-    done | sort -rn | while read _ index
+    done | sort -rn | awk '{ print $2 }' | while read index
     do
         echo ${WIFI_SSID[$index]:-\"\"} ${WIFI_MAC[$index]} ${WIFI_FLAGS[$index]} ${WIFI_LEVEL[$index]}
     done
