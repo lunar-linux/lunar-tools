@@ -17,7 +17,8 @@ lnet_LIBS = lib/lnet/bootstrap \
             lib/lnet/devices.lnet.sh \
             lib/lnet/dialog.lnet.sh \
             lib/lnet/menus.lnet.sh \
-            lib/lnet/netmasks.lnet.sh
+            lib/lnet/netmasks.lnet.sh \
+            lib/lnet/wifi.lnet.sh
 DOCS = README COPYING
 MANPAGES = $(shell ls -1 man/*)
 
