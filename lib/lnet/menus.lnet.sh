@@ -12,6 +12,93 @@ hostname_config_menu() {
     fi
 }
 
+wifi_strength_string() {
+    local wifi_strength=$1
+
+    local wifi_strength_str
+    declare -a wifi_strength_str
+    wifi_strength_str=(
+        âââââââ
+        ââââââ_
+        âââââ__
+        ââââ___
+        âââ____
+        ââ_____
+        â______
+        _______
+    )
+
+    if ((wifi_strength > -50))
+    then
+        echo "${wifi_strength_str[0]}"
+        return
+    fi
+
+    if ((wifi_strength > -55))
+    then
+        echo "${wifi_strength_str[1]}"
+        return
+    fi
+
+    if ((wifi_strength > -60))
+    then
+        echo "${wifi_strength_str[2]}"
+        return
+    fi
+
+    if ((wifi_strength > -65))
+    then
+        echo "${wifi_strength_str[3]}"
+        return
+    fi
+
+    if ((wifi_strength > -70))
+    then
+        echo "${wifi_strength_str[4]}"
+        return
+    fi
+
+    if ((wifi_strength > -75))
+    then
+        echo "${wifi_strength_str[5]}"
+        return
+    fi
+
+    if ((wifi_strength > -80))
+    then
+        echo "${wifi_strength_str[6]}"
+        return
+    fi
+
+    echo "${wifi_strength_str[7]}"
+}
+
+wifi_scan_menu() {
+    local device=$1
+    local index=0
+    local menu
+    local aps
+    declare -a menu
+    declare -a aps
+
+    wifi_sort_aps $device | while read ssid mac flags level
+    do
+        level_str=$(wifi_strength_string $level)
+        menu+=($index "$(printf '%-24s %s\n' $ssid $level_str)")
+        aps+=($(printf '%s %s' $ssid $mac))
+        ((index++))
+    done
+
+    local PROMPT="Select wifi AP"
+    result=$($DIALOG --title "Select wifi AP" \
+                     --ok-label "Select" \
+                     --cancel-label "Back" \
+                     --menu \
+                     $PROMPT \
+                     0 0 0 \
+                     "${menu[@]}") || return
+}
+
 dev_add_menu() {
     local devices=()
     local devices_menu=()
