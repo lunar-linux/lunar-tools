@@ -1,70 +1,58 @@
 #!/bin/bash
 
-# Runs the "iwlist" utility on the device to scan for wireless APs
+# wifi_find_aps <device>
 #
-# Since iwlist has some wildly-inconsistent output, every single line of
-# its output has to be parsed separately.  This means that this is
-# probably REALLY fragile, because if the output was that fragile to
-# begine with, it's definitely subject to the whims of the developers of
-# iwlist.
+# Use wpa_supplicant to ask the device to scan for wireless APs
 
 wifi_find_aps() {
     local device=$1
 
-    iwlist $device scan | awk '
+    wpa_cli -i $device scan > /dev/null 2>&1
+    sleep 5 # number chosen arbitrarily
+    wpa_cli scan_result | awk '
+
         BEGIN {
+            cell_num=0
+            print "local WIFI_SSD"
+            print "local WIFI_MAC"
+            print "local WIFI_FLAGS"
+            print "local WIFI_LEVEL"
         }
 
-        # Cell 23 - Address: E2:B4:F7:99:56:C9
-        /Cell/ { 
-            if(cell_essid) {
-                print "WIFI_AP[" cell_num "]=" cell_essid
-                print "WIFI_QUALITY[" cell_num "]=" cell_quality
-                print "WIFI_ENCRYPTION[" cell_num "]=" cell_encryption
-            }
-            cell_num = $2
-        }
+        /^[0-9a-f][0-9a-f]:[0-9a-f][0-9a-f]:[0-9a-f][0-9a-f]:/ {
+            wifi_ssid = $5
+            wifi_flags = $4
+            wifi_level = $3
+            wifi_freq = $2
+            wifi_mac = $1
+            printf "WIFI_SSID[%d]=\"%s\"\n", cell_num, wifi_ssid
+            printf "WIFI_MAC[%d]=\"%s\"\n", cell_num, wifi_mac
+            printf "WIFI_FLAGS[%d]=\"%s\"\n", cell_num, wifi_flags
+            printf "WIFI_LEVEL[%d]=\"%s\"\n", cell_num, wifi_level
 
-        # Quality=25/70  Signal level=-85 dBm
-
-        /Quality/ {
-            OFS=FS
-            cell_quality=$1
-            FS="="
-            $0=cell_quality
-            cell_quality=$2
-            FS=OFS
-        }
-
-        # Encryption key:on
-
-        /Encryption/ {
-            if($2 == "key:on") {
-                cell_encryption="true"
-            } else {
-                cell_encryption="false"
-            }
-        }
-        
-        # ESSID:"xg100n-98598d-1"
-
-        /ESSID/ { 
-            OFS=FS
-            FS=":"
-            $0=$0 # force resplit of input
-            cell_essid=$2
-            FS=OFS
-        }
-        
-        END { # get the last one
-            if(cell_essid) {
-                print "WIFI_APS[" cell_num "]=" cell_essid
-                print "WIFI_QUALITY[" cell_num "]=" cell_quality
-            }
+            cell_num++
         }'
 }
 
-# wifi_ap_password <AP> <password>
+# wifi_sort_aps
+#
+# Sort available APs in order of signal strength
+
+wifi_sort_aps() {
+    local device=$1
+
+    eval $(wifi_find_aps $device)
+
+    for i in $(eval echo {0..$[${#WIFI_LEVEL[@]}-1]})
+    do
+        echo ${WIFI_LEVEL[$i]} ${i}
+    done | sort -rn | while read _ index
+    do
+        echo ${WIFI_SSID[$index]:-\"\"} ${WIFI_MAC[$index]} ${WIFI_FLAGS[$index]} ${WIFI_LEVEL[$index]}
+    done
+}
+
+# wifi_ap_password <device> <AP> <password>
 #
 # Creates a wpa_supplicant fragment
 wifi_ap_password() {
