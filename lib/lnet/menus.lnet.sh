@@ -318,17 +318,19 @@ dev_config_menu() {
     # Before starting to worry about IP addresses and DHCP for a WiFi device,
     # make sure you connect to an AP first.
 
-    if $WiFi_Device
-    then
-        wifi_select_menu $device
-    fi
-
     while true
     do
         choice=$($DIALOG --title "Network configuration: $device" \
                          --ok-label "Select" \
                          --cancel-label "Back" \
                          --menu "" 0 0 0 \
+                         $(
+                            if $WiFi_Device
+                            then
+                                echo "A"
+                                echo "Select WiFi AP"
+                            fi
+                         ) \
                          D "DHCP enabled?    [$($DHCP_enabled && echo Y || echo N)]" \
                          $(
                             if ! $DHCP_enabled
@@ -355,6 +357,7 @@ dev_config_menu() {
                     DHCP_enabled=true
                 fi
             ;;
+            A)  wifi_select_menu $device                               ;;
             I) IP_Address=$(inputbox "Enter IP address" "$IP_Address") ;;
             N) Netmask=$(inputbox "Enter net mask" "$Netmask")         ;;
             G) Gateway=$(inputbox "Enter gateway" "$Gateway")          ;;
