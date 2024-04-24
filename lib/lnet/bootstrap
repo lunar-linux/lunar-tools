@@ -1,0 +1,22 @@
+#!/bin/bash
+###############################################################
+#                                                             #
+# bootstrap - lnet initialization code                        #
+#                                                             #
+###############################################################
+#                                                             #
+# Original code copyright 2012 by Peter de Ridder under GPLv2 #
+# Adapted for lnet by Dave Brown 2024                         #
+#                                                             #
+###############################################################
+
+# check if /etc/lunar/config is loaded
+if [ -z "$BOOTSTRAP" ]; then
+  . /etc/lunar/config
+fi
+
+FUNCTIONS=/var/lib/lunar/functions/lnet
+
+for FUNCTION in $FUNCTIONS/*.lnet.sh; do
+  . $FUNCTION
+done
