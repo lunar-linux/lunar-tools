@@ -405,7 +405,7 @@ main_menu() {
 						  $(echo -en $LIST)                 \
 						  "A"  "Add a network device"       \
 						  "N"  "Setup host name"            \
-						  $(echo -en $MANAGE)) || return
+						  $(echo -en $MANAGE)) || return 0
 		case "$COMMAND" in
             [0-9]*) dev_edit_menu ${INTERFACES[$COMMAND]}      ;;
             A)      dev_add_menu                               ;;
