@@ -192,6 +192,8 @@ dev_add_menu() {
                      "${devices_menu[@]}") || return
     dev=${devices[$[result-1]]}
 
+    set_dev_config $dev dhcp
+
     dev_config_menu $dev
 }
 
