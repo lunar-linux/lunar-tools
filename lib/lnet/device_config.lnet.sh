@@ -68,7 +68,7 @@ get_dev_config() {
     local config_file="$CONFIG_DIR/${device}.network"
     local DHCP_enabled=true
     local IP_Address=0.0.0.0
-    local Netmask=255.255.255.255
+    local Netmask=255.255.255.0
     local Gateway=0.0.0.0
     local CIDR
     local DNS1
