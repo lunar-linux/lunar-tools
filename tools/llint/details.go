@@ -125,6 +125,9 @@ func LintDetails(filePath string, opts LintOptions) LintResult {
 	// Check heredoc line lengths
 	result.Errors = append(result.Errors, checkHeredocLength(file, lines, opts.MaxLineLength)...)
 
+	// Check duplicate assignments
+	result.Errors = append(result.Errors, checkDuplicates(file, lines)...)
+
 	if opts.Fix && result.HasErrors() {
 		// Save pre-fix errors for verbose reporting
 		preFix := result.Errors
@@ -145,6 +148,7 @@ func LintDetails(filePath string, opts LintOptions) LintResult {
 		remaining.Errors = append(remaining.Errors, checkAlignment(file, fixedLines)...)
 		remaining.Errors = append(remaining.Errors, checkSpecialOptions(file, fixedLines)...)
 		remaining.Errors = append(remaining.Errors, checkHeredocLength(file, fixedLines, opts.MaxLineLength)...)
+		remaining.Errors = append(remaining.Errors, checkDuplicates(file, fixedLines)...)
 
 		// Build verbose messages for errors that were fixed
 		if opts.Verbose {
@@ -306,6 +310,60 @@ func checkSpecialOptions(file string, lines []detailsLine) []LintError {
 	return errs
 }
 
+// checkDuplicates reports duplicate variable assignments.
+// Exact duplicates (same name and value) are fixable; conflicting values are not.
+func checkDuplicates(file string, lines []detailsLine) []LintError {
+	type seen struct {
+		value   string
+		lineNum int
+	}
+	assignments := make(map[string][]seen)
+
+	for _, dl := range lines {
+		if dl.kind != kindAssignment {
+			continue
+		}
+		assignments[dl.varName] = append(assignments[dl.varName], seen{value: dl.varValue, lineNum: dl.lineNum})
+	}
+
+	var errs []LintError
+	for varName, occurrences := range assignments {
+		if len(occurrences) < 2 {
+			continue
+		}
+		// Check if all values are the same
+		allSame := true
+		for _, o := range occurrences[1:] {
+			if o.value != occurrences[0].value {
+				allSame = false
+				break
+			}
+		}
+		if allSame {
+			// Exact duplicates — fixable, report on all but the first
+			for _, o := range occurrences[1:] {
+				errs = append(errs, LintError{
+					File:    file,
+					Line:    o.lineNum,
+					Message: fmt.Sprintf("duplicate assignment: %s (same value)", varName),
+					Fixable: true,
+				})
+			}
+		} else {
+			// Conflicting values — not fixable, report on all occurrences
+			for _, o := range occurrences {
+				errs = append(errs, LintError{
+					File:    file,
+					Line:    o.lineNum,
+					Message: fmt.Sprintf("conflicting duplicate assignment: %s", varName),
+					Fixable: false,
+				})
+			}
+		}
+	}
+	return errs
+}
+
 // checkHeredocLength reports heredoc lines exceeding max length.
 func checkHeredocLength(file string, lines []detailsLine, maxLen int) []LintError {
 	if maxLen <= 0 {
@@ -328,6 +386,9 @@ func checkHeredocLength(file string, lines []detailsLine, maxLen int) []LintErro
 
 // fixDetails produces a corrected version of the DETAILS file content.
 func fixDetails(lines []detailsLine, maxLineLen int) string {
+	// Deduplicate exact-duplicate assignments (keep first occurrence only)
+	lines = dedup(lines)
+
 	alignCol := fixAlignColumn(lines)
 
 	// Separate lines into regions
@@ -417,6 +478,49 @@ func fixDetails(lines []detailsLine, maxLineLen int) string {
 		result += "\n"
 	}
 
+	return result
+}
+
+// dedup removes exact-duplicate assignments (same varName and varValue), keeping the first occurrence.
+// Conflicting duplicates (same name, different value) are left in place — they are unfixable.
+func dedup(lines []detailsLine) []detailsLine {
+	type entry struct {
+		values   []string
+		conflict bool
+	}
+	seen := make(map[string]*entry)
+
+	// First pass: detect duplicates and conflicts
+	for _, dl := range lines {
+		if dl.kind != kindAssignment {
+			continue
+		}
+		if e, ok := seen[dl.varName]; ok {
+			e.values = append(e.values, dl.varValue)
+			if dl.varValue != e.values[0] {
+				e.conflict = true
+			}
+		} else {
+			seen[dl.varName] = &entry{values: []string{dl.varValue}}
+		}
+	}
+
+	// Second pass: filter out exact duplicates (keep first), preserve conflicts
+	kept := make(map[string]bool)
+	result := make([]detailsLine, 0, len(lines))
+	for _, dl := range lines {
+		if dl.kind == kindAssignment {
+			e := seen[dl.varName]
+			if len(e.values) > 1 && !e.conflict {
+				// Exact duplicates — keep only the first
+				if kept[dl.varName] {
+					continue
+				}
+				kept[dl.varName] = true
+			}
+		}
+		result = append(result, dl)
+	}
 	return result
 }
 

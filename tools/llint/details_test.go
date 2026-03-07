@@ -447,3 +447,132 @@ EOF
 		}
 	}
 }
+
+func TestDetailsExactDuplicate(t *testing.T) {
+	content := `          MODULE=testmod
+         VERSION=1.0
+          SOURCE=$MODULE-$VERSION.tar.gz
+          SOURCE=$MODULE-$VERSION.tar.gz
+      SOURCE_VFY=sha256:abc123
+        WEB_SITE=http://example.com
+         ENTERED=20200101
+         UPDATED=20200101
+           SHORT="A test module"
+cat << EOF
+Test.
+EOF
+`
+	path := writeTempDetails(t, content)
+	result := LintDetails(path, LintOptions{MaxLineLength: 120})
+
+	foundDup := false
+	for _, e := range result.Errors {
+		if strings.Contains(e.Message, "duplicate assignment") {
+			foundDup = true
+			if !e.Fixable {
+				t.Error("exact duplicate should be fixable")
+			}
+		}
+	}
+	if !foundDup {
+		t.Error("expected duplicate assignment error for SOURCE")
+	}
+}
+
+func TestDetailsConflictingDuplicate(t *testing.T) {
+	content := `          MODULE=testmod
+         VERSION=1.0
+          SOURCE=$MODULE-$VERSION.tar.gz
+      SOURCE_VFY=sha256:abc123
+        WEB_SITE=http://example.com
+         ENTERED=20200101
+         UPDATED=20200101
+           SHORT="A test module"
+PSAFE=no
+PSAFE=yes
+cat << EOF
+Test.
+EOF
+`
+	path := writeTempDetails(t, content)
+	result := LintDetails(path, LintOptions{MaxLineLength: 120})
+
+	conflictCount := 0
+	for _, e := range result.Errors {
+		if strings.Contains(e.Message, "conflicting duplicate") {
+			conflictCount++
+			if e.Fixable {
+				t.Error("conflicting duplicate should NOT be fixable")
+			}
+		}
+	}
+	if conflictCount != 2 {
+		t.Errorf("expected 2 conflicting duplicate errors, got %d", conflictCount)
+	}
+}
+
+func TestDetailsFixExactDuplicate(t *testing.T) {
+	content := `          MODULE=testmod
+         VERSION=1.0
+          SOURCE=$MODULE-$VERSION.tar.gz
+          SOURCE=$MODULE-$VERSION.tar.gz
+      SOURCE_VFY=sha256:abc123
+        WEB_SITE=http://example.com
+         ENTERED=20200101
+         UPDATED=20200101
+           SHORT="A test module"
+cat << EOF
+Test.
+EOF
+`
+	path := writeTempDetails(t, content)
+	result := LintDetails(path, LintOptions{Fix: true, MaxLineLength: 120})
+
+	if !result.Fixed {
+		t.Error("expected Fixed=true")
+	}
+	if result.HasErrors() {
+		for _, e := range result.Errors {
+			t.Errorf("unexpected remaining error after fix: %s", e)
+		}
+	}
+
+	// Verify the duplicate was removed
+	data, _ := os.ReadFile(path)
+	count := strings.Count(string(data), "SOURCE=$MODULE-$VERSION.tar.gz")
+	if count != 1 {
+		t.Errorf("expected SOURCE to appear once after dedup, found %d times", count)
+	}
+}
+
+func TestDetailsFixConflictingDuplicateStillFails(t *testing.T) {
+	content := `          MODULE=testmod
+         VERSION=1.0
+          SOURCE=$MODULE-$VERSION.tar.gz
+      SOURCE_VFY=sha256:abc123
+        WEB_SITE=http://example.com
+         ENTERED=20200101
+         UPDATED=20200101
+           SHORT="A test module"
+PSAFE=no
+PSAFE=yes
+cat << EOF
+Test.
+EOF
+`
+	path := writeTempDetails(t, content)
+	result := LintDetails(path, LintOptions{Fix: true, MaxLineLength: 120})
+
+	if !result.HasErrors() {
+		t.Error("expected errors to remain for conflicting duplicates")
+	}
+	foundConflict := false
+	for _, e := range result.Errors {
+		if strings.Contains(e.Message, "conflicting duplicate") {
+			foundConflict = true
+		}
+	}
+	if !foundConflict {
+		t.Error("expected conflicting duplicate error to remain after fix")
+	}
+}
