@@ -758,3 +758,163 @@ func TestDetailsFixTrailingNewlines(t *testing.T) {
 		t.Error("file has extra trailing newline after EOF")
 	}
 }
+
+func TestDetailsValidDates(t *testing.T) {
+	content := `          MODULE=testmod
+         VERSION=1.0
+          SOURCE=$MODULE-$VERSION.tar.gz
+      SOURCE_VFY=sha256:abc123
+        WEB_SITE=http://example.com
+         ENTERED=20200101
+         UPDATED=20200601
+           SHORT="A test module"
+
+cat << EOF
+Test.
+EOF
+`
+	path := writeTempDetails(t, content)
+	result := LintDetails(path, LintOptions{MaxLineLength: 120})
+
+	for _, e := range result.Errors {
+		if strings.Contains(e.Message, "ENTERED") || strings.Contains(e.Message, "UPDATED") {
+			t.Errorf("unexpected date error: %s", e)
+		}
+	}
+}
+
+func TestDetailsInvalidDateFormat(t *testing.T) {
+	content := `          MODULE=testmod
+         VERSION=1.0
+          SOURCE=$MODULE-$VERSION.tar.gz
+      SOURCE_VFY=sha256:abc123
+        WEB_SITE=http://example.com
+         ENTERED=2020-01-01
+         UPDATED=20200601
+           SHORT="A test module"
+
+cat << EOF
+Test.
+EOF
+`
+	path := writeTempDetails(t, content)
+	result := LintDetails(path, LintOptions{MaxLineLength: 120})
+
+	found := false
+	for _, e := range result.Errors {
+		if strings.Contains(e.Message, "invalid date format") {
+			found = true
+		}
+	}
+	if !found {
+		t.Error("expected invalid date format error for ENTERED")
+	}
+}
+
+func TestDatesFutureDate(t *testing.T) {
+	content := `          MODULE=testmod
+         VERSION=1.0
+          SOURCE=$MODULE-$VERSION.tar.gz
+      SOURCE_VFY=sha256:abc123
+        WEB_SITE=http://example.com
+         ENTERED=20200101
+         UPDATED=20991231
+           SHORT="A test module"
+
+cat << EOF
+Test.
+EOF
+`
+	path := writeTempDetails(t, content)
+	result := LintDetails(path, LintOptions{MaxLineLength: 120})
+
+	found := false
+	for _, e := range result.Errors {
+		if strings.Contains(e.Message, "in the future") {
+			found = true
+		}
+	}
+	if !found {
+		t.Error("expected future date error for UPDATED")
+	}
+}
+
+func TestDatesUpdatedBeforeEntered(t *testing.T) {
+	content := `          MODULE=testmod
+         VERSION=1.0
+          SOURCE=$MODULE-$VERSION.tar.gz
+      SOURCE_VFY=sha256:abc123
+        WEB_SITE=http://example.com
+         ENTERED=20200601
+         UPDATED=20200101
+           SHORT="A test module"
+
+cat << EOF
+Test.
+EOF
+`
+	path := writeTempDetails(t, content)
+	result := LintDetails(path, LintOptions{MaxLineLength: 120})
+
+	found := false
+	for _, e := range result.Errors {
+		if strings.Contains(e.Message, "UPDATED") && strings.Contains(e.Message, "before ENTERED") {
+			found = true
+		}
+	}
+	if !found {
+		t.Error("expected UPDATED before ENTERED error")
+	}
+}
+
+func TestDetailsModuleNameMatchesDir(t *testing.T) {
+	content := `          MODULE=testmod
+         VERSION=1.0
+          SOURCE=$MODULE-$VERSION.tar.gz
+      SOURCE_VFY=sha256:abc123
+        WEB_SITE=http://example.com
+         ENTERED=20200101
+         UPDATED=20200101
+           SHORT="A test module"
+
+cat << EOF
+Test.
+EOF
+`
+	path := writeTempDetails(t, content)
+	result := LintDetails(path, LintOptions{MaxLineLength: 120})
+
+	for _, e := range result.Errors {
+		if strings.Contains(e.Message, "does not match directory") {
+			t.Errorf("unexpected MODULE name error: %s", e)
+		}
+	}
+}
+
+func TestDetailsModuleNameMismatch(t *testing.T) {
+	content := `          MODULE=wrong-name
+         VERSION=1.0
+          SOURCE=$MODULE-$VERSION.tar.gz
+      SOURCE_VFY=sha256:abc123
+        WEB_SITE=http://example.com
+         ENTERED=20200101
+         UPDATED=20200101
+           SHORT="A test module"
+
+cat << EOF
+Test.
+EOF
+`
+	path := writeTempDetails(t, content)
+	result := LintDetails(path, LintOptions{MaxLineLength: 120})
+
+	found := false
+	for _, e := range result.Errors {
+		if strings.Contains(e.Message, "does not match directory") {
+			found = true
+		}
+	}
+	if !found {
+		t.Error("expected MODULE name mismatch error")
+	}
+}

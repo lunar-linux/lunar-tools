@@ -3,8 +3,10 @@ package main
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"regexp"
 	"strings"
+	"time"
 )
 
 // Special options that must be flush-left after the main variable block.
@@ -134,6 +136,12 @@ func LintDetails(filePath string, opts LintOptions) LintResult {
 	// Check duplicate assignments
 	result.Errors = append(result.Errors, checkDuplicates(file, lines)...)
 
+	// Check date fields
+	result.Errors = append(result.Errors, checkDates(file, lines)...)
+
+	// Check MODULE matches directory name
+	result.Errors = append(result.Errors, checkModuleName(file, filePath, lines)...)
+
 	if opts.Fix && result.HasErrors() {
 		// Save pre-fix errors for verbose reporting
 		preFix := result.Errors
@@ -157,6 +165,8 @@ func LintDetails(filePath string, opts LintOptions) LintResult {
 		remaining.Errors = append(remaining.Errors, checkHeredocTrailing(file, fixedLines)...)
 		remaining.Errors = append(remaining.Errors, checkHeredocLength(file, fixedLines, opts.MaxLineLength)...)
 		remaining.Errors = append(remaining.Errors, checkDuplicates(file, fixedLines)...)
+		remaining.Errors = append(remaining.Errors, checkDates(file, fixedLines)...)
+		remaining.Errors = append(remaining.Errors, checkModuleName(file, filePath, fixedLines)...)
 
 		// Build verbose messages for errors that were fixed
 		if opts.Verbose {
@@ -370,6 +380,82 @@ func checkDuplicates(file string, lines []detailsLine) []LintError {
 		}
 	}
 	return errs
+}
+
+// checkDates validates ENTERED and UPDATED fields:
+// - must be valid dates in yyyymmdd format
+// - must not be in the future
+// - UPDATED must be >= ENTERED
+func checkDates(file string, lines []detailsLine) []LintError {
+	var errs []LintError
+	dates := make(map[string]time.Time)
+	lineNums := make(map[string]int)
+
+	today := time.Now().Truncate(24 * time.Hour)
+
+	for _, dl := range lines {
+		if dl.kind != kindAssignment {
+			continue
+		}
+		if dl.varName != "ENTERED" && dl.varName != "UPDATED" {
+			continue
+		}
+
+		val := strings.Trim(dl.varValue, "\"'")
+		t, err := time.Parse("20060102", val)
+		if err != nil {
+			errs = append(errs, LintError{
+				File:    file,
+				Line:    dl.lineNum,
+				Message: fmt.Sprintf("%s has invalid date format %q (expected yyyymmdd)", dl.varName, val),
+			})
+			continue
+		}
+
+		if t.After(today) {
+			errs = append(errs, LintError{
+				File:    file,
+				Line:    dl.lineNum,
+				Message: fmt.Sprintf("%s date %s is in the future", dl.varName, val),
+			})
+		}
+
+		dates[dl.varName] = t
+		lineNums[dl.varName] = dl.lineNum
+	}
+
+	entered, hasEntered := dates["ENTERED"]
+	updated, hasUpdated := dates["UPDATED"]
+	if hasEntered && hasUpdated && updated.Before(entered) {
+		errs = append(errs, LintError{
+			File:    file,
+			Line:    lineNums["UPDATED"],
+			Message: fmt.Sprintf("UPDATED (%s) is before ENTERED (%s)",
+				updated.Format("20060102"), entered.Format("20060102")),
+		})
+	}
+
+	return errs
+}
+
+// checkModuleName verifies the MODULE field matches the directory name.
+func checkModuleName(file string, filePath string, lines []detailsLine) []LintError {
+	dirName := filepath.Base(filepath.Dir(filePath))
+
+	for _, dl := range lines {
+		if dl.kind == kindAssignment && dl.varName == "MODULE" {
+			val := strings.Trim(dl.varValue, "\"'")
+			if val != dirName {
+				return []LintError{{
+					File:    file,
+					Line:    dl.lineNum,
+					Message: fmt.Sprintf("MODULE value %q does not match directory name %q", val, dirName),
+				}}
+			}
+			return nil
+		}
+	}
+	return nil
 }
 
 // checkHeredocSpacing verifies there is exactly one blank line before `cat << EOF`.
