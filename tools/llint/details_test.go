@@ -703,3 +703,58 @@ EOF
 		}
 	}
 }
+
+func TestDetailsTrailingNewlinesAfterEOF(t *testing.T) {
+	content := "          MODULE=testmod\n         VERSION=1.0\n          SOURCE=$MODULE-$VERSION.tar.gz\n      SOURCE_VFY=sha256:abc123\n        WEB_SITE=http://example.com\n         ENTERED=20200101\n         UPDATED=20200101\n           SHORT=\"A test module\"\n\ncat << EOF\nTest.\nEOF\n\n\n\n"
+	path := writeTempDetails(t, content)
+	result := LintDetails(path, LintOptions{MaxLineLength: 120})
+
+	found := false
+	for _, e := range result.Errors {
+		if strings.Contains(e.Message, "trailing newline after EOF") {
+			found = true
+			if !e.Fixable {
+				t.Error("trailing newlines after EOF should be fixable")
+			}
+		}
+	}
+	if !found {
+		t.Error("expected trailing newline error after EOF")
+	}
+}
+
+func TestDetailsTrailingNewlinesCorrect(t *testing.T) {
+	content := "          MODULE=testmod\n         VERSION=1.0\n          SOURCE=$MODULE-$VERSION.tar.gz\n      SOURCE_VFY=sha256:abc123\n        WEB_SITE=http://example.com\n         ENTERED=20200101\n         UPDATED=20200101\n           SHORT=\"A test module\"\n\ncat << EOF\nTest.\nEOF\n"
+	path := writeTempDetails(t, content)
+	result := LintDetails(path, LintOptions{MaxLineLength: 120})
+
+	for _, e := range result.Errors {
+		if strings.Contains(e.Message, "trailing newline after EOF") {
+			t.Errorf("unexpected trailing newline error: %s", e)
+		}
+	}
+}
+
+func TestDetailsFixTrailingNewlines(t *testing.T) {
+	content := "          MODULE=testmod\n         VERSION=1.0\n          SOURCE=$MODULE-$VERSION.tar.gz\n      SOURCE_VFY=sha256:abc123\n        WEB_SITE=http://example.com\n         ENTERED=20200101\n         UPDATED=20200101\n           SHORT=\"A test module\"\n\ncat << EOF\nTest.\nEOF\n\n\n\n"
+	path := writeTempDetails(t, content)
+	result := LintDetails(path, LintOptions{Fix: true, MaxLineLength: 120})
+
+	if !result.Fixed {
+		t.Error("expected Fixed=true")
+	}
+	for _, e := range result.Errors {
+		if strings.Contains(e.Message, "trailing newline after EOF") {
+			t.Errorf("trailing newline error should be fixed: %s", e)
+		}
+	}
+
+	// Verify file ends with exactly "EOF\n"
+	data, _ := os.ReadFile(path)
+	if !strings.HasSuffix(string(data), "EOF\n") {
+		t.Errorf("expected file to end with EOF\\n, got: %q", string(data)[len(data)-10:])
+	}
+	if strings.HasSuffix(string(data), "EOF\n\n") {
+		t.Error("file has extra trailing newline after EOF")
+	}
+}

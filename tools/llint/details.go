@@ -125,6 +125,9 @@ func LintDetails(filePath string, opts LintOptions) LintResult {
 	// Check heredoc spacing
 	result.Errors = append(result.Errors, checkHeredocSpacing(file, lines)...)
 
+	// Check heredoc trailing newlines
+	result.Errors = append(result.Errors, checkHeredocTrailing(file, lines)...)
+
 	// Check heredoc line lengths
 	result.Errors = append(result.Errors, checkHeredocLength(file, lines, opts.MaxLineLength)...)
 
@@ -151,6 +154,7 @@ func LintDetails(filePath string, opts LintOptions) LintResult {
 		remaining.Errors = append(remaining.Errors, checkAlignment(file, fixedLines)...)
 		remaining.Errors = append(remaining.Errors, checkSpecialOptions(file, fixedLines)...)
 		remaining.Errors = append(remaining.Errors, checkHeredocSpacing(file, fixedLines)...)
+		remaining.Errors = append(remaining.Errors, checkHeredocTrailing(file, fixedLines)...)
 		remaining.Errors = append(remaining.Errors, checkHeredocLength(file, fixedLines, opts.MaxLineLength)...)
 		remaining.Errors = append(remaining.Errors, checkDuplicates(file, fixedLines)...)
 
@@ -402,6 +406,34 @@ func checkHeredocSpacing(file string, lines []detailsLine) []LintError {
 	return nil
 }
 
+// checkHeredocTrailing verifies there are no extra blank lines after the heredoc EOF.
+func checkHeredocTrailing(file string, lines []detailsLine) []LintError {
+	for i, dl := range lines {
+		if dl.kind != kindHeredocEnd {
+			continue
+		}
+		// Count blank lines after EOF
+		blanks := 0
+		for j := i + 1; j < len(lines); j++ {
+			if lines[j].kind == kindBlank {
+				blanks++
+			} else {
+				// Non-blank content after EOF — not our concern here
+				return nil
+			}
+		}
+		if blanks > 1 {
+			return []LintError{{
+				File:    file,
+				Line:    lines[i+1].lineNum,
+				Message: fmt.Sprintf("expected 1 trailing newline after EOF, found %d blank lines", blanks),
+				Fixable: true,
+			}}
+		}
+	}
+	return nil
+}
+
 // checkHeredocLength reports heredoc lines exceeding max length.
 func checkHeredocLength(file string, lines []detailsLine, maxLen int) []LintError {
 	if maxLen <= 0 {
@@ -515,13 +547,9 @@ func fixDetails(lines []detailsLine, maxLineLen int) string {
 	}
 
 	result := out.String()
-	// Remove trailing newline added by the loop if original didn't have one
-	if len(lines) > 0 && lines[len(lines)-1].raw == "" {
-		// Original ended with empty line — keep trailing newline
-	} else {
-		result = strings.TrimRight(result, "\n")
-		result += "\n"
-	}
+	// Ensure file ends with exactly one trailing newline
+	result = strings.TrimRight(result, "\n")
+	result += "\n"
 
 	return result
 }
