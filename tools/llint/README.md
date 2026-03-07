@@ -15,6 +15,7 @@ llint --path <module-dir>
 - `--verbose` — Show what was fixed (use with `--fix`)
 - `--max-line-length N` — Maximum line length for heredoc text in DETAILS (default: 120)
 - `--path <dir>` — Lint a module directory directly (skips config and index lookup; useful in CI/GitHub Actions)
+- `--version` — Print version, commit SHA, and build date
 
 ### Exit Codes
 
@@ -43,6 +44,8 @@ Configuration is loaded from `/etc/lunar/config`, with `/etc/lunar/local/config`
 | Heredoc line length      | Yes     | Lines in `cat << EOF` block must not exceed `--max-line-length`                          |
 | Duplicate assignments    | Yes/No  | Exact duplicates are auto-removed; conflicting duplicates (different values) are errors   |
 | Required fields          | No      | `MODULE`, `VERSION`, `SOURCE`, `WEB_SITE`, `ENTERED`, `UPDATED`, `SHORT` must be present |
+| Date validation          | No      | `ENTERED`/`UPDATED` must be valid `yyyymmdd`, not in the future, `UPDATED` >= `ENTERED`  |
+| MODULE name              | No      | `MODULE` value must match the directory name (case-sensitive)                             |
 
 **Special options** (must be flush-left, after main block, before heredoc):
 `PSAFE`, `GARBAGE`, `ARCHIVE`, `KEEP_SOURCE`, `USE_WRAPPERS`,
