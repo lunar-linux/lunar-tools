@@ -7,7 +7,14 @@ import (
 	"path/filepath"
 )
 
+var (
+	version   = "dev"
+	commit    = "unknown"
+	buildDate = "unknown"
+)
+
 func main() {
+	showVersion := flag.Bool("version", false, "print version and exit")
 	fix := flag.Bool("fix", false, "auto-fix fixable issues")
 	verbose := flag.Bool("verbose", false, "show what was fixed (use with --fix)")
 	maxLineLength := flag.Int("max-line-length", 120, "maximum line length for heredoc text in DETAILS")
@@ -22,6 +29,11 @@ func main() {
 	}
 
 	flag.Parse()
+
+	if *showVersion {
+		fmt.Printf("llint %s (commit: %s, built: %s)\n", version, commit, buildDate)
+		os.Exit(0)
+	}
 
 	opts := LintOptions{
 		Fix:           *fix,
