@@ -35,12 +35,14 @@ Configuration is loaded from `/etc/lunar/config`, with `/etc/lunar/local/config`
 
 ### DETAILS
 
-| Check | Fixable | Description |
-|-------|---------|-------------|
-| `=` alignment | Yes | All variable assignments must have `=` at the same column |
-| Special option placement | Yes | `PSAFE`, `TYPE`, `GARBAGE`, etc. must be flush-left after the main variable block |
-| Heredoc line length | Yes | Lines in `cat << EOF` block must not exceed `--max-line-length` |
-| Required fields | No | `MODULE`, `VERSION`, `SOURCE`, `WEB_SITE`, `ENTERED`, `UPDATED`, `SHORT` must be present |
+| Check                    | Fixable | Description                                                                              |
+|--------------------------|---------|------------------------------------------------------------------------------------------|
+| `=` alignment            | Yes     | All variable assignments must have `=` at the same column                                |
+| Special option placement | Yes     | `PSAFE`, `GARBAGE`, etc. must be flush-left after the main variable block                |
+| Heredoc spacing          | Yes     | Exactly one blank line before `cat << EOF` and no extra blank lines after `EOF`          |
+| Heredoc line length      | Yes     | Lines in `cat << EOF` block must not exceed `--max-line-length`                          |
+| Duplicate assignments    | Yes/No  | Exact duplicates are auto-removed; conflicting duplicates (different values) are errors   |
+| Required fields          | No      | `MODULE`, `VERSION`, `SOURCE`, `WEB_SITE`, `ENTERED`, `UPDATED`, `SHORT` must be present |
 
 **Special options** (must be flush-left, after main block, before heredoc):
 `PSAFE`, `GARBAGE`, `ARCHIVE`, `KEEP_SOURCE`, `USE_WRAPPERS`,
@@ -48,10 +50,10 @@ Configuration is loaded from `/etc/lunar/config`, with `/etc/lunar/local/config`
 
 ### DEPENDS
 
-| Check | Fixable | Description |
-|-------|---------|-------------|
-| Allowed functions only | No | Only `depends`, `optional_depends`, `optional_depends_requires`, `optional_depends_one_of` |
-| No bash logic | No | `if`/`case`/`for`/`while`, test expressions, variable assignments, command substitutions are all errors |
+| Check                  | Fixable | Description                                                                                             |
+|------------------------|---------|---------------------------------------------------------------------------------------------------------|
+| Allowed functions only | No      | Only `depends`, `optional_depends`, `optional_depends_requires`, `optional_depends_one_of`              |
+| No bash logic          | No      | `if`/`case`/`for`/`while`, test expressions, variable assignments, command substitutions are all errors |
 
 ## Output Format
 
