@@ -6,12 +6,15 @@ A lint checker for Lunar Linux moonbase module files.
 
 ```
 llint [flags] <module-name>
+llint --path <module-dir>
 ```
 
 ### Flags
 
 - `--fix` — Auto-fix fixable issues (rewrites files in-place)
+- `--verbose` — Show what was fixed (use with `--fix`)
 - `--max-line-length N` — Maximum line length for heredoc text in DETAILS (default: 120)
+- `--path <dir>` — Lint a module directory directly (skips config and index lookup; useful in CI/GitHub Actions)
 
 ### Exit Codes
 
