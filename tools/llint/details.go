@@ -10,11 +10,9 @@ import (
 // Special options that must be flush-left after the main variable block.
 var specialOptions = map[string]bool{
 	"PSAFE":                  true,
-	"TYPE":                   true,
 	"GARBAGE":                true,
 	"ARCHIVE":                true,
 	"KEEP_SOURCE":            true,
-	"PROFILE":                true,
 	"USE_WRAPPERS":           true,
 	"COMPRESS_MANPAGES":      true,
 	"KEEP_OBSOLETE_LIBS":     true,
@@ -133,9 +131,19 @@ func LintDetails(filePath string, opts LintOptions) LintResult {
 			result.Errors = append(result.Errors, LintError{
 				File: file, Line: 0, Message: fmt.Sprintf("failed to write fix: %v", err),
 			})
-		} else {
-			result.Fixed = true
+			return result
 		}
+		result.Fixed = true
+
+		// Re-lint the fixed file to report only remaining (unfixable) errors
+		fixedLines := parseDetailsLines(fixed)
+		var remaining LintResult
+		remaining.Fixed = true
+		remaining.Errors = append(remaining.Errors, checkRequiredFields(file, fixedLines)...)
+		remaining.Errors = append(remaining.Errors, checkAlignment(file, fixedLines)...)
+		remaining.Errors = append(remaining.Errors, checkSpecialOptions(file, fixedLines)...)
+		remaining.Errors = append(remaining.Errors, checkHeredocLength(file, fixedLines, opts.MaxLineLength)...)
+		return remaining
 	}
 
 	return result

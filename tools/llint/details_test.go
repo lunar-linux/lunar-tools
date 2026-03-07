@@ -71,11 +71,11 @@ EOF
 }
 
 func TestDetailsSpecialOptionInMainBlock(t *testing.T) {
-	// TYPE is mixed in with main assignments — should be flagged
+	// PSAFE is mixed in with main assignments — should be flagged
 	content := `          MODULE=testmod
          VERSION=1.0
           SOURCE=$MODULE-$VERSION.tar.gz
-            TYPE=cmake
+           PSAFE=no
       SOURCE_VFY=sha256:abc123
         WEB_SITE=http://example.com
          ENTERED=20200101
@@ -90,13 +90,13 @@ EOF
 
 	foundSpecialErr := false
 	for _, e := range result.Errors {
-		if strings.Contains(e.Message, "special option") && strings.Contains(e.Message, "TYPE") {
+		if strings.Contains(e.Message, "special option") && strings.Contains(e.Message, "PSAFE") {
 			foundSpecialErr = true
 			break
 		}
 	}
 	if !foundSpecialErr {
-		t.Error("expected error for TYPE in main block")
+		t.Error("expected error for PSAFE in main block")
 	}
 }
 
@@ -249,7 +249,7 @@ func TestDetailsFixSpecialOptionRelocation(t *testing.T) {
 	content := `          MODULE=testmod
          VERSION=1.0
           SOURCE=$MODULE-$VERSION.tar.gz
-            TYPE=cmake
+           PSAFE=no
       SOURCE_VFY=sha256:abc123
         WEB_SITE=http://example.com
          ENTERED=20200101
@@ -260,34 +260,37 @@ Test.
 EOF
 `
 	path := writeTempDetails(t, content)
-	LintDetails(path, LintOptions{Fix: true, MaxLineLength: 120})
+	result := LintDetails(path, LintOptions{Fix: true, MaxLineLength: 120})
+	if !result.Fixed {
+		t.Fatal("expected Fixed=true")
+	}
 
 	data, _ := os.ReadFile(path)
 	fixed := string(data)
 
-	// TYPE should be flush-left and after the main block (before cat << EOF)
+	// PSAFE should be flush-left and after the main block (before cat << EOF)
 	fixedLines := strings.Split(fixed, "\n")
 	catIdx := -1
-	typeIdx := -1
+	psafeIdx := -1
 	for i, line := range fixedLines {
 		if strings.HasPrefix(strings.TrimSpace(line), "cat <<") {
 			catIdx = i
 		}
-		if strings.HasPrefix(line, "TYPE=") {
-			typeIdx = i
+		if strings.HasPrefix(line, "PSAFE=") {
+			psafeIdx = i
 		}
 	}
-	if typeIdx < 0 {
-		t.Fatal("TYPE= not found in fixed output")
+	if psafeIdx < 0 {
+		t.Fatal("PSAFE= not found in fixed output")
 	}
 	if catIdx < 0 {
 		t.Fatal("cat << EOF not found in fixed output")
 	}
-	if typeIdx >= catIdx {
-		t.Errorf("TYPE (line %d) should be before heredoc (line %d)", typeIdx, catIdx)
+	if psafeIdx >= catIdx {
+		t.Errorf("PSAFE (line %d) should be before heredoc (line %d)", psafeIdx, catIdx)
 	}
-	if fixedLines[typeIdx] != "TYPE=cmake" {
-		t.Errorf("TYPE line should be flush-left, got %q", fixedLines[typeIdx])
+	if fixedLines[psafeIdx] != "PSAFE=no" {
+		t.Errorf("PSAFE line should be flush-left, got %q", fixedLines[psafeIdx])
 	}
 }
 
@@ -387,6 +390,60 @@ EOF
 	for _, e := range result.Errors {
 		if strings.Contains(e.Message, "not aligned") {
 			t.Errorf("unexpected alignment error in multi-source file: %s", e)
+		}
+	}
+}
+
+func TestDetailsFixClearsFixableErrors(t *testing.T) {
+	// Misaligned file — all errors are fixable
+	content := `MODULE=testmod
+VERSION=1.0
+SOURCE=$MODULE-$VERSION.tar.gz
+SOURCE_URL=http://example.com
+SOURCE_VFY=sha256:abc123
+WEB_SITE=http://example.com
+ENTERED=20200101
+UPDATED=20200101
+SHORT="A test module"
+cat << EOF
+Test.
+EOF
+`
+	path := writeTempDetails(t, content)
+	result := LintDetails(path, LintOptions{Fix: true, MaxLineLength: 120})
+
+	if !result.Fixed {
+		t.Error("expected Fixed=true")
+	}
+	// After fix, no errors should remain (all were fixable alignment issues)
+	if result.HasErrors() {
+		for _, e := range result.Errors {
+			t.Errorf("unexpected remaining error after fix: %s", e)
+		}
+	}
+}
+
+func TestDetailsFixKeepsUnfixableErrors(t *testing.T) {
+	// Missing required fields (unfixable) + misaligned (fixable)
+	content := `MODULE=testmod
+VERSION=1.0
+cat << EOF
+Test.
+EOF
+`
+	path := writeTempDetails(t, content)
+	result := LintDetails(path, LintOptions{Fix: true, MaxLineLength: 120})
+
+	if !result.Fixed {
+		t.Error("expected Fixed=true")
+	}
+	// Missing fields should still be reported
+	if !result.HasErrors() {
+		t.Error("expected remaining errors for missing required fields")
+	}
+	for _, e := range result.Errors {
+		if !strings.Contains(e.Message, "missing required field") {
+			t.Errorf("expected only missing-field errors after fix, got: %s", e)
 		}
 	}
 }

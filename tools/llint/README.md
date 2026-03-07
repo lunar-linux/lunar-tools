@@ -40,7 +40,7 @@ Configuration is loaded from `/etc/lunar/config`, with `/etc/lunar/local/config`
 | Required fields | No | `MODULE`, `VERSION`, `SOURCE`, `WEB_SITE`, `ENTERED`, `UPDATED`, `SHORT` must be present |
 
 **Special options** (must be flush-left, after main block, before heredoc):
-`PSAFE`, `TYPE`, `GARBAGE`, `ARCHIVE`, `KEEP_SOURCE`, `PROFILE`, `USE_WRAPPERS`,
+`PSAFE`, `GARBAGE`, `ARCHIVE`, `KEEP_SOURCE`, `USE_WRAPPERS`,
 `COMPRESS_MANPAGES`, `KEEP_OBSOLETE_LIBS`, `LUNAR_RESTART_SERVICES`, `LDD_CHECK`, `FUZZY`
 
 ### DEPENDS
