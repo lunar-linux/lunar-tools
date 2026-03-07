@@ -122,6 +122,9 @@ func LintDetails(filePath string, opts LintOptions) LintResult {
 	// Check special option placement
 	result.Errors = append(result.Errors, checkSpecialOptions(file, lines)...)
 
+	// Check heredoc spacing
+	result.Errors = append(result.Errors, checkHeredocSpacing(file, lines)...)
+
 	// Check heredoc line lengths
 	result.Errors = append(result.Errors, checkHeredocLength(file, lines, opts.MaxLineLength)...)
 
@@ -147,6 +150,7 @@ func LintDetails(filePath string, opts LintOptions) LintResult {
 		remaining.Errors = append(remaining.Errors, checkRequiredFields(file, fixedLines)...)
 		remaining.Errors = append(remaining.Errors, checkAlignment(file, fixedLines)...)
 		remaining.Errors = append(remaining.Errors, checkSpecialOptions(file, fixedLines)...)
+		remaining.Errors = append(remaining.Errors, checkHeredocSpacing(file, fixedLines)...)
 		remaining.Errors = append(remaining.Errors, checkHeredocLength(file, fixedLines, opts.MaxLineLength)...)
 		remaining.Errors = append(remaining.Errors, checkDuplicates(file, fixedLines)...)
 
@@ -364,6 +368,40 @@ func checkDuplicates(file string, lines []detailsLine) []LintError {
 	return errs
 }
 
+// checkHeredocSpacing verifies there is exactly one blank line before `cat << EOF`.
+func checkHeredocSpacing(file string, lines []detailsLine) []LintError {
+	for i, dl := range lines {
+		if dl.kind != kindHeredocStart {
+			continue
+		}
+		// Count consecutive blank lines immediately before the heredoc
+		blanks := 0
+		for j := i - 1; j >= 0; j-- {
+			if lines[j].kind == kindBlank {
+				blanks++
+			} else {
+				break
+			}
+		}
+		if blanks == 1 {
+			return nil // correct
+		}
+		msg := "expected exactly one blank line before heredoc"
+		if blanks == 0 {
+			msg = "missing blank line before heredoc"
+		} else {
+			msg = fmt.Sprintf("expected 1 blank line before heredoc, found %d", blanks)
+		}
+		return []LintError{{
+			File:    file,
+			Line:    dl.lineNum,
+			Message: msg,
+			Fixable: true,
+		}}
+	}
+	return nil
+}
+
 // checkHeredocLength reports heredoc lines exceeding max length.
 func checkHeredocLength(file string, lines []detailsLine, maxLen int) []LintError {
 	if maxLen <= 0 {
@@ -443,15 +481,22 @@ func fixDetails(lines []detailsLine, maxLineLen int) string {
 		out.WriteByte('\n')
 	}
 
-	// Write any remaining between-lines (blanks between main block and heredoc)
+	// Write any non-blank between-lines (e.g. comments between main block and heredoc)
 	for _, dl := range betweenLines {
-		out.WriteString(dl.raw)
-		out.WriteByte('\n')
+		if dl.kind != kindBlank {
+			out.WriteString(dl.raw)
+			out.WriteByte('\n')
+		}
 	}
 
 	// Write special options flush-left
 	for _, dl := range specialAssigns {
 		out.WriteString(fmt.Sprintf("%s=%s", dl.varName, dl.varValue))
+		out.WriteByte('\n')
+	}
+
+	// Ensure exactly one blank line before heredoc
+	if len(heredocAndAfter) > 0 {
 		out.WriteByte('\n')
 	}
 

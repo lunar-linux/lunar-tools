@@ -576,3 +576,130 @@ EOF
 		t.Error("expected conflicting duplicate error to remain after fix")
 	}
 }
+
+func TestDetailsHeredocSpacingMissing(t *testing.T) {
+	content := `          MODULE=testmod
+         VERSION=1.0
+          SOURCE=$MODULE-$VERSION.tar.gz
+      SOURCE_VFY=sha256:abc123
+        WEB_SITE=http://example.com
+         ENTERED=20200101
+         UPDATED=20200101
+           SHORT="A test module"
+cat << EOF
+Test.
+EOF
+`
+	path := writeTempDetails(t, content)
+	result := LintDetails(path, LintOptions{MaxLineLength: 120})
+
+	found := false
+	for _, e := range result.Errors {
+		if strings.Contains(e.Message, "blank line before heredoc") {
+			found = true
+			if !e.Fixable {
+				t.Error("heredoc spacing should be fixable")
+			}
+		}
+	}
+	if !found {
+		t.Error("expected missing blank line before heredoc error")
+	}
+}
+
+func TestDetailsHeredocSpacingTooMany(t *testing.T) {
+	content := `          MODULE=testmod
+         VERSION=1.0
+          SOURCE=$MODULE-$VERSION.tar.gz
+      SOURCE_VFY=sha256:abc123
+        WEB_SITE=http://example.com
+         ENTERED=20200101
+         UPDATED=20200101
+           SHORT="A test module"
+
+
+
+cat << EOF
+Test.
+EOF
+`
+	path := writeTempDetails(t, content)
+	result := LintDetails(path, LintOptions{MaxLineLength: 120})
+
+	found := false
+	for _, e := range result.Errors {
+		if strings.Contains(e.Message, "blank line before heredoc") {
+			found = true
+		}
+	}
+	if !found {
+		t.Error("expected too many blank lines before heredoc error")
+	}
+}
+
+func TestDetailsHeredocSpacingCorrect(t *testing.T) {
+	content := `          MODULE=testmod
+         VERSION=1.0
+          SOURCE=$MODULE-$VERSION.tar.gz
+      SOURCE_VFY=sha256:abc123
+        WEB_SITE=http://example.com
+         ENTERED=20200101
+         UPDATED=20200101
+           SHORT="A test module"
+
+cat << EOF
+Test.
+EOF
+`
+	path := writeTempDetails(t, content)
+	result := LintDetails(path, LintOptions{MaxLineLength: 120})
+
+	for _, e := range result.Errors {
+		if strings.Contains(e.Message, "blank line before heredoc") {
+			t.Errorf("unexpected heredoc spacing error: %s", e)
+		}
+	}
+}
+
+func TestDetailsFixHeredocSpacing(t *testing.T) {
+	content := `          MODULE=testmod
+         VERSION=1.0
+          SOURCE=$MODULE-$VERSION.tar.gz
+      SOURCE_VFY=sha256:abc123
+        WEB_SITE=http://example.com
+         ENTERED=20200101
+         UPDATED=20200101
+           SHORT="A test module"
+cat << EOF
+Test.
+EOF
+`
+	path := writeTempDetails(t, content)
+	result := LintDetails(path, LintOptions{Fix: true, MaxLineLength: 120})
+
+	if !result.Fixed {
+		t.Error("expected Fixed=true")
+	}
+
+	// Re-lint should find no spacing errors
+	for _, e := range result.Errors {
+		if strings.Contains(e.Message, "blank line before heredoc") {
+			t.Errorf("heredoc spacing error should be fixed: %s", e)
+		}
+	}
+
+	// Verify the file has exactly one blank line before cat << EOF
+	data, _ := os.ReadFile(path)
+	lines := strings.Split(string(data), "\n")
+	for i, line := range lines {
+		if strings.HasPrefix(strings.TrimSpace(line), "cat <<") {
+			if i == 0 || lines[i-1] != "" {
+				t.Error("expected blank line immediately before cat << EOF")
+			}
+			if i >= 2 && lines[i-2] == "" {
+				t.Error("expected only ONE blank line before cat << EOF")
+			}
+			break
+		}
+	}
+}
