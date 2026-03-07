@@ -126,6 +126,9 @@ func LintDetails(filePath string, opts LintOptions) LintResult {
 	result.Errors = append(result.Errors, checkHeredocLength(file, lines, opts.MaxLineLength)...)
 
 	if opts.Fix && result.HasErrors() {
+		// Save pre-fix errors for verbose reporting
+		preFix := result.Errors
+
 		fixed := fixDetails(lines, opts.MaxLineLength)
 		if err := os.WriteFile(filePath, []byte(fixed), 0644); err != nil {
 			result.Errors = append(result.Errors, LintError{
@@ -133,7 +136,6 @@ func LintDetails(filePath string, opts LintOptions) LintResult {
 			})
 			return result
 		}
-		result.Fixed = true
 
 		// Re-lint the fixed file to report only remaining (unfixable) errors
 		fixedLines := parseDetailsLines(fixed)
@@ -143,6 +145,21 @@ func LintDetails(filePath string, opts LintOptions) LintResult {
 		remaining.Errors = append(remaining.Errors, checkAlignment(file, fixedLines)...)
 		remaining.Errors = append(remaining.Errors, checkSpecialOptions(file, fixedLines)...)
 		remaining.Errors = append(remaining.Errors, checkHeredocLength(file, fixedLines, opts.MaxLineLength)...)
+
+		// Build verbose messages for errors that were fixed
+		if opts.Verbose {
+			remainSet := make(map[string]bool)
+			for _, e := range remaining.Errors {
+				remainSet[e.String()] = true
+			}
+			for _, e := range preFix {
+				if !remainSet[e.String()] {
+					remaining.FixedMsgs = append(remaining.FixedMsgs,
+						fmt.Sprintf("%s:%d: fixed: %s", e.File, e.Line, e.Message))
+				}
+			}
+		}
+
 		return remaining
 	}
 

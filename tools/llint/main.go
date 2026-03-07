@@ -9,6 +9,7 @@ import (
 
 func main() {
 	fix := flag.Bool("fix", false, "auto-fix fixable issues")
+	verbose := flag.Bool("verbose", false, "show what was fixed (use with --fix)")
 	maxLineLength := flag.Int("max-line-length", 120, "maximum line length for heredoc text in DETAILS")
 
 	flag.Usage = func() {
@@ -29,6 +30,7 @@ func main() {
 
 	opts := LintOptions{
 		Fix:           *fix,
+		Verbose:       *verbose,
 		MaxLineLength: *maxLineLength,
 	}
 
@@ -54,6 +56,10 @@ func main() {
 	dependsPath := filepath.Join(moduleDir, "DEPENDS")
 	if _, err := os.Stat(dependsPath); err == nil {
 		result.Merge(LintDepends(dependsPath, opts))
+	}
+
+	for _, msg := range result.FixedMsgs {
+		fmt.Println(msg)
 	}
 
 	for _, e := range result.Errors {

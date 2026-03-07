@@ -16,8 +16,9 @@ func (e LintError) String() string {
 
 // LintResult collects all errors from a lint run and whether fixes were applied.
 type LintResult struct {
-	Errors []LintError
-	Fixed  bool
+	Errors    []LintError
+	Fixed     bool
+	FixedMsgs []string // describes what was fixed (populated when Verbose+Fix)
 }
 
 // HasErrors returns true if any lint errors were found.
@@ -28,6 +29,7 @@ func (r LintResult) HasErrors() bool {
 // Merge appends errors from another result.
 func (r *LintResult) Merge(other LintResult) {
 	r.Errors = append(r.Errors, other.Errors...)
+	r.FixedMsgs = append(r.FixedMsgs, other.FixedMsgs...)
 	if other.Fixed {
 		r.Fixed = true
 	}
@@ -35,6 +37,7 @@ func (r *LintResult) Merge(other LintResult) {
 
 // LintOptions controls lint behavior.
 type LintOptions struct {
-	Fix          bool
+	Fix           bool
+	Verbose       bool
 	MaxLineLength int
 }
