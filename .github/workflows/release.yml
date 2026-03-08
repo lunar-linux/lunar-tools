@@ -1,0 +1,92 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - '[0-9]*.[0-9]*'
+
+permissions:
+  contents: write
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: tools/llint/go.mod
+
+      - name: Test Go tools
+        run: |
+          for modfile in tools/*/go.mod; do
+            dir=$(dirname "$modfile")
+            echo "Testing $(basename "$dir")"
+            cd "$dir"
+            go test ./...
+            cd "$GITHUB_WORKSPACE"
+          done
+
+  build:
+    needs: test
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        goarch: [amd64, 386]
+        include:
+          - goarch: amd64
+            arch_name: amd64
+          - goarch: 386
+            arch_name: i686
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: tools/llint/go.mod
+
+      - name: Build release tarball
+        run: |
+          tag="${GITHUB_REF#refs/tags/}"
+          make release VERSION="$tag" GOARCH=${{ matrix.goarch }} ARCH=${{ matrix.arch_name }}
+
+      - name: Package standalone tool tarballs
+        run: |
+          tag="${GITHUB_REF#refs/tags/}"
+          for moddir in tools/*/go.mod; do
+            dir=$(dirname "$moddir")
+            tool=$(basename "$dir")
+            binary="${tool}-linux-${{ matrix.arch_name }}"
+            archive_dir="${tool}-${tag}-linux-${{ matrix.arch_name }}"
+            mkdir -p "$archive_dir"
+            cp "${dir}/${tool}" "${archive_dir}/${binary}"
+            tar cJf "${archive_dir}.tar.xz" "$archive_dir"
+          done
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-${{ matrix.arch_name }}
+          path: |
+            lunar-tools-*.tar.xz
+            *-linux-${{ matrix.arch_name }}.tar.xz
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+
+      - name: Create release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          tag="${GITHUB_REF#refs/tags/}"
+          gh release create "$tag" \
+            --title "$tag" \
+            --generate-notes \
+            artifacts/*.tar.xz

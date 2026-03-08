@@ -18,7 +18,7 @@ lnet_LIBS = lib/lnet/bootstrap \
             lib/lnet/menus.lnet.sh \
             lib/lnet/netmasks.lnet.sh \
             lib/lnet/wifi.lnet.sh
-DOCS = README COPYING
+DOCS = README.md COPYING
 MANPAGES = $(shell ls -1 man/*)
 
 lnet_LIBS_dir = /var/lib/lunar/functions/lnet
@@ -51,3 +51,46 @@ install: .PHONY
 
 dist:
 	git archive --format=tar --prefix=lunar-tools-$(VERSION)/ lunar-tools-$(VERSION) | bzip2 > lunar-tools-$(VERSION).tar.bz2
+
+# Go tool variables
+GOOS ?= linux
+GOARCH ?= amd64
+ARCH ?= $(GOARCH)
+GO_TOOLS = $(dir $(wildcard tools/*/go.mod))
+GO_BINARIES = $(foreach d,$(GO_TOOLS),$(d)$(notdir $(patsubst %/,%,$(d))))
+
+COMMIT = $(shell git rev-parse --short HEAD)
+BUILD_DATE = $(shell date -u +%Y-%m-%dT%H:%M:%SZ)
+
+build-tools: .PHONY
+	@for moddir in $(GO_TOOLS); do \
+	    tool=$$(basename "$$moddir") ; \
+	    echo "Building $$tool for $(GOOS)/$(GOARCH)" ; \
+	    cd "$$moddir" && \
+	    GOOS=$(GOOS) GOARCH=$(GOARCH) go build \
+	        -ldflags="-s -w -X main.version=$(VERSION) -X main.commit=$(COMMIT) -X main.buildDate=$(BUILD_DATE)" \
+	        -o "$$tool" . && \
+	    cd "$(CURDIR)" ; \
+	done
+
+install-all: install
+	install -d $(DESTDIR)/usr/bin
+	@for moddir in $(GO_TOOLS); do \
+	    tool=$$(basename "$$moddir") ; \
+	    if [ -f "$$moddir$$tool" ]; then \
+	        echo "Installing $$tool" ; \
+	        install -m755 "$$moddir$$tool" $(DESTDIR)/usr/bin/ ; \
+	    fi ; \
+	done
+
+release: build-tools
+	$(eval TMPDIR := $(shell mktemp -d))
+	git archive --format=tar --prefix=lunar-tools-$(VERSION)/ HEAD | tar -C $(TMPDIR) -xf -
+	rm -rf $(TMPDIR)/lunar-tools-$(VERSION)/.github
+	find $(TMPDIR)/lunar-tools-$(VERSION)/tools -name '*.go' -o -name 'go.mod' -o -name 'go.sum' -o -name '.gitignore' | xargs rm -f
+	@for moddir in $(GO_TOOLS); do \
+	    tool=$$(basename "$$moddir") ; \
+	    cp "$$moddir$$tool" "$(TMPDIR)/lunar-tools-$(VERSION)/$$moddir" ; \
+	done
+	tar -C $(TMPDIR) -cJf lunar-tools-$(VERSION)-$(ARCH).tar.xz lunar-tools-$(VERSION)/
+	rm -rf $(TMPDIR)
