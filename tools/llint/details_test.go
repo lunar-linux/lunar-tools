@@ -7,7 +7,7 @@ import (
 	"testing"
 )
 
-const testMaxLineLength = 120
+const testMaxLineLength = 80
 
 func writeTempDetails(t *testing.T, content string) string {
 	t.Helper()
@@ -311,12 +311,12 @@ cat << EOF
 EOF
 `
 	path := writeTempDetails(t, content)
-	LintDetails(path, LintOptions{Fix: true, MaxLineLength: 80})
+	LintDetails(path, LintOptions{Fix: true, MaxLineLength: testMaxLineLength})
 
 	data, _ := os.ReadFile(path)
 	fixed := string(data)
 	for _, line := range strings.Split(fixed, "\n") {
-		if len(line) > 80 && !strings.Contains(line, "=") && line != "EOF" && !strings.HasPrefix(line, "cat") {
+		if len(line) > testMaxLineLength && !strings.Contains(line, "=") && line != "EOF" && !strings.HasPrefix(line, "cat") {
 			t.Errorf("heredoc line still too long after fix: %d chars: %s", len(line), line)
 		}
 	}

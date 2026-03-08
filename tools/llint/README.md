@@ -13,7 +13,7 @@ llint --path <module-dir>
 
 - `--fix` — Auto-fix fixable issues (rewrites files in-place)
 - `--verbose` — Show what was fixed (use with `--fix`)
-- `--max-line-length N` — Maximum line length for heredoc text in DETAILS (default: 120)
+- `--max-line-length N` — Maximum line length for heredoc text in DETAILS (default: 80)
 - `--path <dir>` — Lint a module directory directly (skips config and index lookup; useful in CI/GitHub Actions)
 - `--version` — Print version, commit SHA, and build date
 

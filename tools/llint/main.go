@@ -17,7 +17,7 @@ func main() {
 	showVersion := flag.Bool("version", false, "print version and exit")
 	fix := flag.Bool("fix", false, "auto-fix fixable issues")
 	verbose := flag.Bool("verbose", false, "show what was fixed (use with --fix)")
-	maxLineLength := flag.Int("max-line-length", 120, "maximum line length for heredoc text in DETAILS")
+	maxLineLength := flag.Int("max-line-length", 80, "maximum line length for heredoc text in DETAILS")
 	pathFlag := flag.String("path", "", "path to a module directory (skips config and index lookup)")
 
 	flag.Usage = func() {
