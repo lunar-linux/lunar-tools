@@ -1,0 +1,132 @@
+.TH LLINT 1 "2026-03-08" "lunar-tools" "Lunar Linux"
+.SH NAME
+llint \- lint checker for Lunar Linux moonbase module files
+.SH SYNOPSIS
+.B llint
+.RI [ flags ]
+.I module-name
+.br
+.B llint
+.B \-\-path
+.I module-dir
+.SH DESCRIPTION
+.B llint
+validates Lunar Linux moonbase module files (DETAILS, DEPENDS) for
+correctness. It checks variable alignment, required fields, date formats,
+heredoc formatting, and dependency declarations.
+.PP
+When given a module name,
+.B llint
+reads the lunar configuration to locate the module directory, checking
+zlocal sections first before falling back to the module index.
+When given a path with
+.BR \-\-path ,
+it lints the directory directly without requiring lunar configuration.
+.SH OPTIONS
+.TP
+.B \-\-fix
+Auto-fix fixable issues by rewriting files in-place.
+.TP
+.B \-\-verbose
+Show what was fixed. Use with
+.BR \-\-fix .
+.TP
+.BI \-\-max\-line\-length " N"
+Maximum line length for heredoc text in DETAILS. Default: 80.
+.TP
+.BI \-\-path " dir"
+Lint a module directory directly, skipping config and index lookup.
+Useful in CI and GitHub Actions.
+.TP
+.B \-\-version
+Print version, commit SHA, and build date.
+.SH DETAILS CHECKS
+.TP
+.B = alignment \fR(fixable)
+All variable assignments must have = at the same column.
+.TP
+.B Special option placement \fR(fixable)
+PSAFE, GARBAGE, ARCHIVE, KEEP_SOURCE, USE_WRAPPERS, COMPRESS_MANPAGES,
+KEEP_OBSOLETE_LIBS, LUNAR_RESTART_SERVICES, LDD_CHECK, and FUZZY must
+be flush-left after the main variable block.
+.TP
+.B Heredoc spacing \fR(fixable)
+Exactly one blank line before
+.B cat << EOF
+and no extra blank lines after
+.BR EOF .
+.TP
+.B Heredoc line length \fR(fixable)
+Lines in the heredoc block must not exceed
+.BR \-\-max\-line\-length .
+.TP
+.B Duplicate assignments \fR(partially fixable)
+Exact duplicates are auto-removed. Conflicting duplicates (different values)
+are errors.
+.TP
+.B Required fields
+MODULE, VERSION, SOURCE, WEB_SITE, ENTERED, UPDATED, and SHORT must be present.
+.TP
+.B Date validation
+ENTERED and UPDATED must be valid dates in yyyymmdd format, must not be
+in the future, and UPDATED must be >= ENTERED.
+.TP
+.B MODULE name
+The MODULE value must match the directory name (case-sensitive).
+.SH DEPENDS CHECKS
+.TP
+.B Allowed functions only
+Only
+.BR depends ,
+.BR optional_depends ,
+.BR optional_depends_requires ,
+and
+.B optional_depends_one_of
+are allowed.
+.TP
+.B No bash logic
+if, case, for, while, test expressions, variable assignments, and command
+substitutions are all errors.
+.SH EXIT STATUS
+.TP
+.B 0
+No errors found.
+.TP
+.B 1
+Lint errors found.
+.TP
+.B 2
+Usage error (bad arguments, missing config, module not found).
+.SH FILES
+.TP
+.I /etc/lunar/config
+Main lunar configuration file.
+.TP
+.I /etc/lunar/local/config
+Local configuration overlay.
+.SH EXAMPLES
+Lint a module by name:
+.PP
+.RS
+.nf
+llint zlib
+.fi
+.RE
+.PP
+Lint a module directory directly:
+.PP
+.RS
+.nf
+llint \-\-path /var/lib/lunar/moonbase/libs/zlib
+.fi
+.RE
+.PP
+Auto-fix issues with verbose output:
+.PP
+.RS
+.nf
+llint \-\-fix \-\-verbose zlib
+.fi
+.RE
+.SH SEE ALSO
+.BR lunar (8)
