@@ -57,7 +57,7 @@ GOOS ?= linux
 GOARCH ?= amd64
 ARCH ?= $(GOARCH)
 GO_TOOLS = $(dir $(wildcard tools/*/go.mod))
-GO_BINARIES = $(foreach d,$(GO_TOOLS),$(d)$(notdir $(patsubst %/,%,$(d))))
+go_PROGS = tools/llint/llint
 
 COMMIT = $(shell git rev-parse --short HEAD)
 BUILD_DATE = $(shell date -u +%Y-%m-%dT%H:%M:%SZ)
@@ -75,12 +75,8 @@ build-tools: .PHONY
 
 install-all: install
 	install -d $(DESTDIR)/usr/bin
-	@for moddir in $(GO_TOOLS); do \
-	    tool=$$(basename "$$moddir") ; \
-	    if [ -f "$$moddir$$tool" ]; then \
-	        echo "Installing $$tool" ; \
-	        install -m755 "$$moddir$$tool" $(DESTDIR)/usr/bin/ ; \
-	    fi ; \
+	for PROGRAM in $(go_PROGS) ; do \
+	    install -m755 $${PROGRAM} $(DESTDIR)/usr/bin/ ; \
 	done
 
 release: build-tools
