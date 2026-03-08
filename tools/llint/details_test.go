@@ -7,6 +7,8 @@ import (
 	"testing"
 )
 
+const testMaxLineLength = 120
+
 func writeTempDetails(t *testing.T, content string) string {
 	t.Helper()
 	dir := t.TempDir()
@@ -32,7 +34,7 @@ This is a test module.
 EOF
 `
 	path := writeTempDetails(t, content)
-	result := LintDetails(path, LintOptions{MaxLineLength: 120})
+	result := LintDetails(path, LintOptions{MaxLineLength: testMaxLineLength})
 
 	for _, e := range result.Errors {
 		if strings.Contains(e.Message, "not aligned") {
@@ -56,7 +58,7 @@ Test.
 EOF
 `
 	path := writeTempDetails(t, content)
-	result := LintDetails(path, LintOptions{MaxLineLength: 120})
+	result := LintDetails(path, LintOptions{MaxLineLength: testMaxLineLength})
 
 	foundAlignErr := false
 	for _, e := range result.Errors {
@@ -86,7 +88,7 @@ Test.
 EOF
 `
 	path := writeTempDetails(t, content)
-	result := LintDetails(path, LintOptions{MaxLineLength: 120})
+	result := LintDetails(path, LintOptions{MaxLineLength: testMaxLineLength})
 
 	foundSpecialErr := false
 	for _, e := range result.Errors {
@@ -115,7 +117,7 @@ Test.
 EOF
 `
 	path := writeTempDetails(t, content)
-	result := LintDetails(path, LintOptions{MaxLineLength: 120})
+	result := LintDetails(path, LintOptions{MaxLineLength: testMaxLineLength})
 
 	foundFlushErr := false
 	for _, e := range result.Errors {
@@ -145,7 +147,7 @@ Test.
 EOF
 `
 	path := writeTempDetails(t, content)
-	result := LintDetails(path, LintOptions{MaxLineLength: 120})
+	result := LintDetails(path, LintOptions{MaxLineLength: testMaxLineLength})
 
 	for _, e := range result.Errors {
 		if strings.Contains(e.Message, "special option") || strings.Contains(e.Message, "flush-left") {
@@ -169,7 +171,7 @@ cat << EOF
 EOF
 `
 	path := writeTempDetails(t, content)
-	result := LintDetails(path, LintOptions{MaxLineLength: 120})
+	result := LintDetails(path, LintOptions{MaxLineLength: testMaxLineLength})
 
 	foundLenErr := false
 	for _, e := range result.Errors {
@@ -191,7 +193,7 @@ Test.
 EOF
 `
 	path := writeTempDetails(t, content)
-	result := LintDetails(path, LintOptions{MaxLineLength: 120})
+	result := LintDetails(path, LintOptions{MaxLineLength: testMaxLineLength})
 
 	missing := map[string]bool{"SOURCE": false, "WEB_SITE": false, "ENTERED": false, "UPDATED": false, "SHORT": false}
 	for _, e := range result.Errors {
@@ -223,7 +225,7 @@ Test.
 EOF
 `
 	path := writeTempDetails(t, content)
-	result := LintDetails(path, LintOptions{Fix: true, MaxLineLength: 120})
+	result := LintDetails(path, LintOptions{Fix: true, MaxLineLength: testMaxLineLength})
 
 	if !result.Fixed {
 		t.Error("expected Fixed=true")
@@ -260,7 +262,7 @@ Test.
 EOF
 `
 	path := writeTempDetails(t, content)
-	result := LintDetails(path, LintOptions{Fix: true, MaxLineLength: 120})
+	result := LintDetails(path, LintOptions{Fix: true, MaxLineLength: testMaxLineLength})
 	if !result.Fixed {
 		t.Fatal("expected Fixed=true")
 	}
@@ -335,7 +337,7 @@ Test.
 EOF
 `
 	path := writeTempDetails(t, content)
-	result := LintDetails(path, LintOptions{MaxLineLength: 120})
+	result := LintDetails(path, LintOptions{MaxLineLength: testMaxLineLength})
 
 	for _, e := range result.Errors {
 		if strings.Contains(e.Message, "not aligned") {
@@ -359,7 +361,7 @@ Test.
 EOF
 `
 	path := writeTempDetails(t, content)
-	LintDetails(path, LintOptions{Fix: true, MaxLineLength: 120})
+	LintDetails(path, LintOptions{Fix: true, MaxLineLength: testMaxLineLength})
 
 	data, _ := os.ReadFile(path)
 	if !strings.Contains(string(data), "# This is a comment") {
@@ -385,7 +387,7 @@ Cargo applet to build and install C-ABI compatible dynamic and static libraries.
 EOF
 `
 	path := writeTempDetails(t, content)
-	result := LintDetails(path, LintOptions{MaxLineLength: 120})
+	result := LintDetails(path, LintOptions{MaxLineLength: testMaxLineLength})
 
 	for _, e := range result.Errors {
 		if strings.Contains(e.Message, "not aligned") {
@@ -410,7 +412,7 @@ Test.
 EOF
 `
 	path := writeTempDetails(t, content)
-	result := LintDetails(path, LintOptions{Fix: true, MaxLineLength: 120})
+	result := LintDetails(path, LintOptions{Fix: true, MaxLineLength: testMaxLineLength})
 
 	if !result.Fixed {
 		t.Error("expected Fixed=true")
@@ -432,7 +434,7 @@ Test.
 EOF
 `
 	path := writeTempDetails(t, content)
-	result := LintDetails(path, LintOptions{Fix: true, MaxLineLength: 120})
+	result := LintDetails(path, LintOptions{Fix: true, MaxLineLength: testMaxLineLength})
 
 	if !result.Fixed {
 		t.Error("expected Fixed=true")
@@ -463,7 +465,7 @@ Test.
 EOF
 `
 	path := writeTempDetails(t, content)
-	result := LintDetails(path, LintOptions{MaxLineLength: 120})
+	result := LintDetails(path, LintOptions{MaxLineLength: testMaxLineLength})
 
 	foundDup := false
 	for _, e := range result.Errors {
@@ -495,7 +497,7 @@ Test.
 EOF
 `
 	path := writeTempDetails(t, content)
-	result := LintDetails(path, LintOptions{MaxLineLength: 120})
+	result := LintDetails(path, LintOptions{MaxLineLength: testMaxLineLength})
 
 	conflictCount := 0
 	for _, e := range result.Errors {
@@ -526,7 +528,7 @@ Test.
 EOF
 `
 	path := writeTempDetails(t, content)
-	result := LintDetails(path, LintOptions{Fix: true, MaxLineLength: 120})
+	result := LintDetails(path, LintOptions{Fix: true, MaxLineLength: testMaxLineLength})
 
 	if !result.Fixed {
 		t.Error("expected Fixed=true")
@@ -561,7 +563,7 @@ Test.
 EOF
 `
 	path := writeTempDetails(t, content)
-	result := LintDetails(path, LintOptions{Fix: true, MaxLineLength: 120})
+	result := LintDetails(path, LintOptions{Fix: true, MaxLineLength: testMaxLineLength})
 
 	if !result.HasErrors() {
 		t.Error("expected errors to remain for conflicting duplicates")
@@ -591,7 +593,7 @@ Test.
 EOF
 `
 	path := writeTempDetails(t, content)
-	result := LintDetails(path, LintOptions{MaxLineLength: 120})
+	result := LintDetails(path, LintOptions{MaxLineLength: testMaxLineLength})
 
 	found := false
 	for _, e := range result.Errors {
@@ -624,7 +626,7 @@ Test.
 EOF
 `
 	path := writeTempDetails(t, content)
-	result := LintDetails(path, LintOptions{MaxLineLength: 120})
+	result := LintDetails(path, LintOptions{MaxLineLength: testMaxLineLength})
 
 	found := false
 	for _, e := range result.Errors {
@@ -652,7 +654,7 @@ Test.
 EOF
 `
 	path := writeTempDetails(t, content)
-	result := LintDetails(path, LintOptions{MaxLineLength: 120})
+	result := LintDetails(path, LintOptions{MaxLineLength: testMaxLineLength})
 
 	for _, e := range result.Errors {
 		if strings.Contains(e.Message, "blank line before heredoc") {
@@ -675,7 +677,7 @@ Test.
 EOF
 `
 	path := writeTempDetails(t, content)
-	result := LintDetails(path, LintOptions{Fix: true, MaxLineLength: 120})
+	result := LintDetails(path, LintOptions{Fix: true, MaxLineLength: testMaxLineLength})
 
 	if !result.Fixed {
 		t.Error("expected Fixed=true")
@@ -707,7 +709,7 @@ EOF
 func TestDetailsTrailingNewlinesAfterEOF(t *testing.T) {
 	content := "          MODULE=testmod\n         VERSION=1.0\n          SOURCE=$MODULE-$VERSION.tar.gz\n      SOURCE_VFY=sha256:abc123\n        WEB_SITE=http://example.com\n         ENTERED=20200101\n         UPDATED=20200101\n           SHORT=\"A test module\"\n\ncat << EOF\nTest.\nEOF\n\n\n\n"
 	path := writeTempDetails(t, content)
-	result := LintDetails(path, LintOptions{MaxLineLength: 120})
+	result := LintDetails(path, LintOptions{MaxLineLength: testMaxLineLength})
 
 	found := false
 	for _, e := range result.Errors {
@@ -726,7 +728,7 @@ func TestDetailsTrailingNewlinesAfterEOF(t *testing.T) {
 func TestDetailsTrailingNewlinesCorrect(t *testing.T) {
 	content := "          MODULE=testmod\n         VERSION=1.0\n          SOURCE=$MODULE-$VERSION.tar.gz\n      SOURCE_VFY=sha256:abc123\n        WEB_SITE=http://example.com\n         ENTERED=20200101\n         UPDATED=20200101\n           SHORT=\"A test module\"\n\ncat << EOF\nTest.\nEOF\n"
 	path := writeTempDetails(t, content)
-	result := LintDetails(path, LintOptions{MaxLineLength: 120})
+	result := LintDetails(path, LintOptions{MaxLineLength: testMaxLineLength})
 
 	for _, e := range result.Errors {
 		if strings.Contains(e.Message, "trailing newline after EOF") {
@@ -738,7 +740,7 @@ func TestDetailsTrailingNewlinesCorrect(t *testing.T) {
 func TestDetailsFixTrailingNewlines(t *testing.T) {
 	content := "          MODULE=testmod\n         VERSION=1.0\n          SOURCE=$MODULE-$VERSION.tar.gz\n      SOURCE_VFY=sha256:abc123\n        WEB_SITE=http://example.com\n         ENTERED=20200101\n         UPDATED=20200101\n           SHORT=\"A test module\"\n\ncat << EOF\nTest.\nEOF\n\n\n\n"
 	path := writeTempDetails(t, content)
-	result := LintDetails(path, LintOptions{Fix: true, MaxLineLength: 120})
+	result := LintDetails(path, LintOptions{Fix: true, MaxLineLength: testMaxLineLength})
 
 	if !result.Fixed {
 		t.Error("expected Fixed=true")
@@ -774,7 +776,7 @@ Test.
 EOF
 `
 	path := writeTempDetails(t, content)
-	result := LintDetails(path, LintOptions{MaxLineLength: 120})
+	result := LintDetails(path, LintOptions{MaxLineLength: testMaxLineLength})
 
 	for _, e := range result.Errors {
 		if strings.Contains(e.Message, "ENTERED") || strings.Contains(e.Message, "UPDATED") {
@@ -798,7 +800,7 @@ Test.
 EOF
 `
 	path := writeTempDetails(t, content)
-	result := LintDetails(path, LintOptions{MaxLineLength: 120})
+	result := LintDetails(path, LintOptions{MaxLineLength: testMaxLineLength})
 
 	found := false
 	for _, e := range result.Errors {
@@ -826,7 +828,7 @@ Test.
 EOF
 `
 	path := writeTempDetails(t, content)
-	result := LintDetails(path, LintOptions{MaxLineLength: 120})
+	result := LintDetails(path, LintOptions{MaxLineLength: testMaxLineLength})
 
 	found := false
 	for _, e := range result.Errors {
@@ -854,7 +856,7 @@ Test.
 EOF
 `
 	path := writeTempDetails(t, content)
-	result := LintDetails(path, LintOptions{MaxLineLength: 120})
+	result := LintDetails(path, LintOptions{MaxLineLength: testMaxLineLength})
 
 	found := false
 	for _, e := range result.Errors {
@@ -882,7 +884,7 @@ Test.
 EOF
 `
 	path := writeTempDetails(t, content)
-	result := LintDetails(path, LintOptions{MaxLineLength: 120})
+	result := LintDetails(path, LintOptions{MaxLineLength: testMaxLineLength})
 
 	for _, e := range result.Errors {
 		if strings.Contains(e.Message, "does not match directory") {
@@ -906,7 +908,7 @@ Test.
 EOF
 `
 	path := writeTempDetails(t, content)
-	result := LintDetails(path, LintOptions{MaxLineLength: 120})
+	result := LintDetails(path, LintOptions{MaxLineLength: testMaxLineLength})
 
 	found := false
 	for _, e := range result.Errors {
