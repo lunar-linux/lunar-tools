@@ -34,6 +34,39 @@ func TestLintResultMerge(t *testing.T) {
 	}
 }
 
+func TestLintErrorWarnString(t *testing.T) {
+	e := LintError{File: "DETAILS", Line: 3, Message: "missing SOURCE_VFY"}
+	got := e.WarnString()
+	want := "DETAILS:3: warning: missing SOURCE_VFY"
+	if got != want {
+		t.Errorf("got %q, want %q", got, want)
+	}
+}
+
+func TestLintResultWarnings(t *testing.T) {
+	r := LintResult{}
+	if r.HasWarnings() {
+		t.Error("empty result should not have warnings")
+	}
+	r.Warnings = append(r.Warnings, LintError{})
+	if !r.HasWarnings() {
+		t.Error("result with warnings should have warnings")
+	}
+}
+
+func TestLintResultMergeWarnings(t *testing.T) {
+	r1 := LintResult{
+		Warnings: []LintError{{File: "A", Line: 1, Message: "w1"}},
+	}
+	r2 := LintResult{
+		Warnings: []LintError{{File: "B", Line: 2, Message: "w2"}},
+	}
+	r1.Merge(r2)
+	if len(r1.Warnings) != 2 {
+		t.Errorf("expected 2 warnings, got %d", len(r1.Warnings))
+	}
+}
+
 func TestLintOptionsDefaults(t *testing.T) {
 	opts := LintOptions{}
 	if opts.Fix {

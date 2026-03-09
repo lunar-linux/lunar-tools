@@ -518,6 +518,7 @@ func TestDetailsFixExactDuplicate(t *testing.T) {
          VERSION=1.0
           SOURCE=$MODULE-$VERSION.tar.gz
           SOURCE=$MODULE-$VERSION.tar.gz
+      SOURCE_URL=http://example.com
       SOURCE_VFY=sha256:abc123
         WEB_SITE=http://example.com
          ENTERED=20200101
@@ -918,5 +919,297 @@ EOF
 	}
 	if !found {
 		t.Error("expected MODULE name mismatch error")
+	}
+}
+
+func TestSourceURLPairingValid(t *testing.T) {
+	content := `          MODULE=testmod
+         VERSION=1.0
+          SOURCE=$MODULE-$VERSION.tar.gz
+      SOURCE_URL=http://example.com
+      SOURCE_VFY=sha256:abc123
+        WEB_SITE=http://example.com
+         ENTERED=20200101
+         UPDATED=20200101
+           SHORT="A test module"
+
+cat << EOF
+Test.
+EOF
+`
+	path := writeTempDetails(t, content)
+	result := LintDetails(path, LintOptions{MaxLineLength: testMaxLineLength})
+
+	for _, e := range result.Errors {
+		if strings.Contains(e.Message, "SOURCE") && strings.Contains(e.Message, "URL") {
+			t.Errorf("unexpected SOURCE/URL pairing error: %s", e)
+		}
+	}
+}
+
+func TestSourceURLFullPairingValid(t *testing.T) {
+	content := `            MODULE=testmod
+           VERSION=1.0
+            SOURCE=$MODULE-$VERSION.tar.gz
+   SOURCE_URL_FULL=http://example.com/v1.0.tar.gz
+        SOURCE_VFY=sha256:abc123
+          WEB_SITE=http://example.com
+           ENTERED=20200101
+           UPDATED=20200101
+             SHORT="A test module"
+
+cat << EOF
+Test.
+EOF
+`
+	path := writeTempDetails(t, content)
+	result := LintDetails(path, LintOptions{MaxLineLength: testMaxLineLength})
+
+	for _, e := range result.Errors {
+		if strings.Contains(e.Message, "SOURCE") && strings.Contains(e.Message, "URL") {
+			t.Errorf("unexpected SOURCE/URL pairing error: %s", e)
+		}
+	}
+}
+
+func TestSourceURLPairingMissingURL(t *testing.T) {
+	content := `          MODULE=testmod
+         VERSION=1.0
+          SOURCE=$MODULE-$VERSION.tar.gz
+      SOURCE_VFY=sha256:abc123
+        WEB_SITE=http://example.com
+         ENTERED=20200101
+         UPDATED=20200101
+           SHORT="A test module"
+
+cat << EOF
+Test.
+EOF
+`
+	path := writeTempDetails(t, content)
+	result := LintDetails(path, LintOptions{MaxLineLength: testMaxLineLength})
+
+	found := false
+	for _, e := range result.Errors {
+		if strings.Contains(e.Message, "SOURCE has no matching SOURCE_URL or SOURCE_URL_FULL") {
+			found = true
+		}
+	}
+	if !found {
+		t.Error("expected error for SOURCE without URL")
+	}
+}
+
+func TestSourceURLPairingOrphanedURL(t *testing.T) {
+	content := `          MODULE=testmod
+         VERSION=1.0
+          SOURCE=$MODULE-$VERSION.tar.gz
+      SOURCE_URL=http://example.com
+      SOURCE_VFY=sha256:abc123
+  SOURCE2_URL_FULL=http://example.com/extra.tar.gz
+        WEB_SITE=http://example.com
+         ENTERED=20200101
+         UPDATED=20200101
+           SHORT="A test module"
+
+cat << EOF
+Test.
+EOF
+`
+	path := writeTempDetails(t, content)
+	result := LintDetails(path, LintOptions{MaxLineLength: testMaxLineLength})
+
+	found := false
+	for _, e := range result.Errors {
+		if strings.Contains(e.Message, "SOURCE2_URL/_URL_FULL found but SOURCE2 is not defined") {
+			found = true
+		}
+	}
+	if !found {
+		t.Error("expected error for orphaned SOURCE2_URL_FULL")
+	}
+}
+
+func TestSourceURLPairingMultiSourceValid(t *testing.T) {
+	content := `            MODULE=testmod
+           VERSION=1.0
+            SOURCE=$MODULE-$VERSION.tar.gz
+           SOURCE2=extra.tar.gz
+   SOURCE_URL_FULL=http://example.com/v1.0.tar.gz
+  SOURCE2_URL_FULL=http://example.com/extra.tar.gz
+        SOURCE_VFY=sha256:abc123
+       SOURCE2_VFY=sha256:def456
+          WEB_SITE=http://example.com
+           ENTERED=20200101
+           UPDATED=20200101
+             SHORT="A test module"
+
+cat << EOF
+Test.
+EOF
+`
+	path := writeTempDetails(t, content)
+	result := LintDetails(path, LintOptions{MaxLineLength: testMaxLineLength})
+
+	for _, e := range result.Errors {
+		if strings.Contains(e.Message, "SOURCE") && strings.Contains(e.Message, "URL") {
+			t.Errorf("unexpected SOURCE/URL pairing error: %s", e)
+		}
+	}
+}
+
+func TestSourceURLPairingMultiSourceMissingURL(t *testing.T) {
+	content := `            MODULE=testmod
+           VERSION=1.0
+            SOURCE=$MODULE-$VERSION.tar.gz
+           SOURCE2=extra.tar.gz
+   SOURCE_URL_FULL=http://example.com/v1.0.tar.gz
+        SOURCE_VFY=sha256:abc123
+          WEB_SITE=http://example.com
+           ENTERED=20200101
+           UPDATED=20200101
+             SHORT="A test module"
+
+cat << EOF
+Test.
+EOF
+`
+	path := writeTempDetails(t, content)
+	result := LintDetails(path, LintOptions{MaxLineLength: testMaxLineLength})
+
+	found := false
+	for _, e := range result.Errors {
+		if strings.Contains(e.Message, "SOURCE2 has no matching SOURCE2_URL or SOURCE2_URL_FULL") {
+			found = true
+		}
+	}
+	if !found {
+		t.Error("expected error for SOURCE2 without URL")
+	}
+}
+
+func TestSourceURLPairingMultiSourceOrphanedURL(t *testing.T) {
+	content := `            MODULE=testmod
+           VERSION=1.0
+            SOURCE=$MODULE-$VERSION.tar.gz
+   SOURCE_URL_FULL=http://example.com/v1.0.tar.gz
+  SOURCE3_URL_FULL=http://example.com/orphan.tar.gz
+        SOURCE_VFY=sha256:abc123
+          WEB_SITE=http://example.com
+           ENTERED=20200101
+           UPDATED=20200101
+             SHORT="A test module"
+
+cat << EOF
+Test.
+EOF
+`
+	path := writeTempDetails(t, content)
+	result := LintDetails(path, LintOptions{MaxLineLength: testMaxLineLength})
+
+	found := false
+	for _, e := range result.Errors {
+		if strings.Contains(e.Message, "SOURCE3_URL/_URL_FULL found but SOURCE3 is not defined") {
+			found = true
+		}
+	}
+	if !found {
+		t.Error("expected error for orphaned SOURCE3_URL_FULL")
+	}
+}
+
+func TestSourceVFYWarning(t *testing.T) {
+	content := `          MODULE=testmod
+         VERSION=1.0
+          SOURCE=$MODULE-$VERSION.tar.gz
+      SOURCE_URL=http://example.com
+        WEB_SITE=http://example.com
+         ENTERED=20200101
+         UPDATED=20200101
+           SHORT="A test module"
+
+cat << EOF
+Test.
+EOF
+`
+	path := writeTempDetails(t, content)
+	result := LintDetails(path, LintOptions{MaxLineLength: testMaxLineLength})
+
+	// Should be a warning, not an error
+	for _, e := range result.Errors {
+		if strings.Contains(e.Message, "SOURCE_VFY") {
+			t.Errorf("SOURCE_VFY should be a warning, not an error: %s", e)
+		}
+	}
+	found := false
+	for _, w := range result.Warnings {
+		if strings.Contains(w.Message, "SOURCE_VFY is not defined") {
+			found = true
+		}
+	}
+	if !found {
+		t.Error("expected warning for missing SOURCE_VFY")
+	}
+}
+
+func TestSourceVFYWarningMultiSource(t *testing.T) {
+	content := `            MODULE=testmod
+           VERSION=1.0
+            SOURCE=$MODULE-$VERSION.tar.gz
+           SOURCE2=extra.tar.gz
+   SOURCE_URL_FULL=http://example.com/v1.0.tar.gz
+  SOURCE2_URL_FULL=http://example.com/extra.tar.gz
+        SOURCE_VFY=sha256:abc123
+          WEB_SITE=http://example.com
+           ENTERED=20200101
+           UPDATED=20200101
+             SHORT="A test module"
+
+cat << EOF
+Test.
+EOF
+`
+	path := writeTempDetails(t, content)
+	result := LintDetails(path, LintOptions{MaxLineLength: testMaxLineLength})
+
+	found := false
+	for _, w := range result.Warnings {
+		if strings.Contains(w.Message, "SOURCE2_VFY is not defined") {
+			found = true
+		}
+	}
+	if !found {
+		t.Error("expected warning for missing SOURCE2_VFY")
+	}
+	// SOURCE_VFY is present, so no warning for it
+	for _, w := range result.Warnings {
+		if w.Message == "SOURCE_VFY is not defined (recommended)" {
+			t.Error("unexpected warning for SOURCE_VFY which is present")
+		}
+	}
+}
+
+func TestSourceVFYNoWarningWhenPresent(t *testing.T) {
+	content := `          MODULE=testmod
+         VERSION=1.0
+          SOURCE=$MODULE-$VERSION.tar.gz
+      SOURCE_URL=http://example.com
+      SOURCE_VFY=sha256:abc123
+        WEB_SITE=http://example.com
+         ENTERED=20200101
+         UPDATED=20200101
+           SHORT="A test module"
+
+cat << EOF
+Test.
+EOF
+`
+	path := writeTempDetails(t, content)
+	result := LintDetails(path, LintOptions{MaxLineLength: testMaxLineLength})
+
+	for _, w := range result.Warnings {
+		if strings.Contains(w.Message, "SOURCE_VFY") {
+			t.Errorf("unexpected warning for SOURCE_VFY when it is present: %s", w)
+		}
 	}
 }

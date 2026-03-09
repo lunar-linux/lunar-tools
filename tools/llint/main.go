@@ -92,6 +92,10 @@ func main() {
 		fmt.Println(e)
 	}
 
+	for _, w := range result.Warnings {
+		fmt.Println(w.WarnString())
+	}
+
 	if result.Fixed {
 		fmt.Println("Fixes applied.")
 	}

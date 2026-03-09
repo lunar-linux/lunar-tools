@@ -142,6 +142,11 @@ func LintDetails(filePath string, opts LintOptions) LintResult {
 	// Check MODULE matches directory name
 	result.Errors = append(result.Errors, checkModuleName(file, filePath, lines)...)
 
+	// Check SOURCE/URL pairing
+	srcErrs, srcWarns := checkSourceURLPairing(file, lines)
+	result.Errors = append(result.Errors, srcErrs...)
+	result.Warnings = append(result.Warnings, srcWarns...)
+
 	if opts.Fix && result.HasErrors() {
 		// Save pre-fix errors for verbose reporting
 		preFix := result.Errors
@@ -167,6 +172,9 @@ func LintDetails(filePath string, opts LintOptions) LintResult {
 		remaining.Errors = append(remaining.Errors, checkDuplicates(file, fixedLines)...)
 		remaining.Errors = append(remaining.Errors, checkDates(file, fixedLines)...)
 		remaining.Errors = append(remaining.Errors, checkModuleName(file, filePath, fixedLines)...)
+		fixSrcErrs, fixSrcWarns := checkSourceURLPairing(file, fixedLines)
+		remaining.Errors = append(remaining.Errors, fixSrcErrs...)
+		remaining.Warnings = append(remaining.Warnings, fixSrcWarns...)
 
 		// Build verbose messages for errors that were fixed
 		if opts.Verbose {
@@ -690,6 +698,92 @@ func formatAssignment(varName, value string, alignCol int) string {
 		padding = 0
 	}
 	return fmt.Sprintf("%s%s=%s", strings.Repeat(" ", padding), varName, value)
+}
+
+// sourceRe matches SOURCE or SOURCE<N> variable names.
+var sourceRe = regexp.MustCompile(`^SOURCE(\d*)$`)
+
+// sourceURLRe matches SOURCE_URL, SOURCE_URL_FULL, SOURCE<N>_URL, or SOURCE<N>_URL_FULL.
+var sourceURLRe = regexp.MustCompile(`^SOURCE(\d*)_(URL|URL_FULL)$`)
+
+// sourceVFYRe matches SOURCE_VFY or SOURCE<N>_VFY.
+var sourceVFYRe = regexp.MustCompile(`^SOURCE(\d*)_VFY$`)
+
+// checkSourceURLPairing validates that every SOURCE<N> has a matching URL and vice versa.
+// Returns (errors, warnings). Warnings are for missing SOURCE<N>_VFY.
+func checkSourceURLPairing(file string, lines []detailsLine) ([]LintError, []LintError) {
+	type sourceInfo struct {
+		hasSource  bool
+		sourceLine int
+		hasURL     bool
+		urlLine    int
+		hasVFY     bool
+	}
+
+	groups := make(map[string]*sourceInfo)
+
+	for _, dl := range lines {
+		if dl.kind != kindAssignment {
+			continue
+		}
+
+		if m := sourceRe.FindStringSubmatch(dl.varName); m != nil {
+			suffix := m[1]
+			if groups[suffix] == nil {
+				groups[suffix] = &sourceInfo{}
+			}
+			groups[suffix].hasSource = true
+			groups[suffix].sourceLine = dl.lineNum
+		} else if m := sourceURLRe.FindStringSubmatch(dl.varName); m != nil {
+			suffix := m[1]
+			if groups[suffix] == nil {
+				groups[suffix] = &sourceInfo{}
+			}
+			groups[suffix].hasURL = true
+			groups[suffix].urlLine = dl.lineNum
+		} else if m := sourceVFYRe.FindStringSubmatch(dl.varName); m != nil {
+			suffix := m[1]
+			if groups[suffix] == nil {
+				groups[suffix] = &sourceInfo{}
+			}
+			groups[suffix].hasVFY = true
+		}
+	}
+
+	var errs, warns []LintError
+
+	for suffix, info := range groups {
+		label := "SOURCE"
+		if suffix != "" {
+			label = "SOURCE" + suffix
+		}
+
+		if info.hasSource && !info.hasURL {
+			errs = append(errs, LintError{
+				File:    file,
+				Line:    info.sourceLine,
+				Message: fmt.Sprintf("%s has no matching %s_URL or %s_URL_FULL", label, label, label),
+			})
+		}
+
+		if info.hasURL && !info.hasSource {
+			errs = append(errs, LintError{
+				File:    file,
+				Line:    info.urlLine,
+				Message: fmt.Sprintf("%s_URL/_URL_FULL found but %s is not defined", label, label),
+			})
+		}
+
+		if info.hasSource && !info.hasVFY {
+			warns = append(warns, LintError{
+				File:    file,
+				Line:    info.sourceLine,
+				Message: fmt.Sprintf("%s_VFY is not defined (recommended)", label),
+			})
+		}
+	}
+
+	return errs, warns
 }
 
 // wrapLine wraps a line at word boundaries to fit within maxLen.

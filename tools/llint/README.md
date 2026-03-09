@@ -46,10 +46,17 @@ Configuration is loaded from `/etc/lunar/config`, with `/etc/lunar/local/config`
 | Required fields          | No      | `MODULE`, `VERSION`, `SOURCE`, `WEB_SITE`, `ENTERED`, `UPDATED`, `SHORT` must be present |
 | Date validation          | No      | `ENTERED`/`UPDATED` must be valid `yyyymmdd`, not in the future, `UPDATED` >= `ENTERED`  |
 | MODULE name              | No      | `MODULE` value must match the directory name (case-sensitive)                             |
+| SOURCE/URL pairing       | No      | Every `SOURCE`/`SOURCE<N>` must have a matching `_URL` or `_URL_FULL`, and vice versa    |
 
 **Special options** (must be flush-left, after main block, before heredoc):
 `PSAFE`, `GARBAGE`, `ARCHIVE`, `KEEP_SOURCE`, `USE_WRAPPERS`,
 `COMPRESS_MANPAGES`, `KEEP_OBSOLETE_LIBS`, `LUNAR_RESTART_SERVICES`, `LDD_CHECK`, `FUZZY`
+
+**Warnings** (printed but do not affect exit code):
+
+| Check              | Description                                                                     |
+|--------------------|---------------------------------------------------------------------------------|
+| Missing SOURCE_VFY | `SOURCE_VFY`/`SOURCE<N>_VFY` not defined — recommended for integrity validation |
 
 ### DEPENDS
 
@@ -62,6 +69,7 @@ Configuration is loaded from `/etc/lunar/config`, with `/etc/lunar/local/config`
 
 ```
 module/DETAILS:3: error: '=' not aligned (expected column 16, found 10)
+module/DETAILS:3: warning: SOURCE_VFY is not defined (recommended)
 module/DEPENDS:14: error: disallowed bash logic: 'if'
 ```
 
