@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 )
 
 const testMaxLineLength = 80
@@ -814,6 +815,31 @@ EOF
 	}
 }
 
+func TestDatesTodayNotFlagged(t *testing.T) {
+	today := time.Now().Format("20060102")
+	content := `          MODULE=testmod
+         VERSION=1.0
+          SOURCE=$MODULE-$VERSION.tar.gz
+      SOURCE_VFY=sha256:abc123
+        WEB_SITE=http://example.com
+         ENTERED=20200101
+         UPDATED=` + today + `
+           SHORT="A test module"
+
+cat << EOF
+Test.
+EOF
+`
+	path := writeTempDetails(t, content)
+	result := LintDetails(path, LintOptions{MaxLineLength: testMaxLineLength})
+
+	for _, e := range result.Errors {
+		if strings.Contains(e.Message, "in the future") {
+			t.Errorf("today's date should not be flagged as future: %s", e)
+		}
+	}
+}
+
 func TestDatesFutureDate(t *testing.T) {
 	content := `          MODULE=testmod
          VERSION=1.0
@@ -1210,6 +1236,114 @@ EOF
 	for _, w := range result.Warnings {
 		if strings.Contains(w.Message, "SOURCE_VFY") {
 			t.Errorf("unexpected warning for SOURCE_VFY when it is present: %s", w)
+		}
+	}
+}
+
+func TestSourceURLArrayFormValid(t *testing.T) {
+	content := `          MODULE=testmod
+         VERSION=1.0
+          SOURCE=$MODULE-$VERSION.tar.gz
+   SOURCE_URL[0]=http://example.com/
+   SOURCE_URL[1]=http://mirror.example.com/
+      SOURCE_VFY=sha256:abc123
+        WEB_SITE=http://example.com
+         ENTERED=20200101
+         UPDATED=20200101
+           SHORT="A test module"
+
+cat << EOF
+Test.
+EOF
+`
+	path := writeTempDetails(t, content)
+	result := LintDetails(path, LintOptions{MaxLineLength: testMaxLineLength})
+
+	for _, e := range result.Errors {
+		if strings.Contains(e.Message, "SOURCE") && strings.Contains(e.Message, "URL") {
+			t.Errorf("unexpected SOURCE/URL pairing error for array-form URL: %s", e)
+		}
+	}
+}
+
+func TestSourceURLFullArrayFormValid(t *testing.T) {
+	content := `               MODULE=testmod
+              VERSION=1.0
+               SOURCE=$MODULE-$VERSION.tar.gz
+   SOURCE_URL_FULL[0]=http://example.com/v1.0.tar.gz
+   SOURCE_URL_FULL[1]=http://mirror.example.com/v1.0.tar.gz
+           SOURCE_VFY=sha256:abc123
+             WEB_SITE=http://example.com
+              ENTERED=20200101
+              UPDATED=20200101
+                SHORT="A test module"
+
+cat << EOF
+Test.
+EOF
+`
+	path := writeTempDetails(t, content)
+	result := LintDetails(path, LintOptions{MaxLineLength: testMaxLineLength})
+
+	for _, e := range result.Errors {
+		if strings.Contains(e.Message, "SOURCE") && strings.Contains(e.Message, "URL") {
+			t.Errorf("unexpected SOURCE/URL pairing error for array-form URL_FULL: %s", e)
+		}
+	}
+}
+
+func TestSourceURLArrayFormMultiSource(t *testing.T) {
+	content := `                MODULE=testmod
+               VERSION=1.0
+                SOURCE=$MODULE-$VERSION.tar.gz
+               SOURCE2=extra.tar.gz
+    SOURCE_URL_FULL[0]=http://example.com/v1.0.tar.gz
+    SOURCE_URL_FULL[1]=http://mirror.example.com/v1.0.tar.gz
+   SOURCE2_URL_FULL[0]=http://example.com/extra.tar.gz
+   SOURCE2_URL_FULL[1]=http://mirror.example.com/extra.tar.gz
+            SOURCE_VFY=sha256:abc123
+           SOURCE2_VFY=sha256:def456
+              WEB_SITE=http://example.com
+               ENTERED=20200101
+               UPDATED=20200101
+                 SHORT="A test module"
+
+cat << EOF
+Test.
+EOF
+`
+	path := writeTempDetails(t, content)
+	result := LintDetails(path, LintOptions{MaxLineLength: testMaxLineLength})
+
+	for _, e := range result.Errors {
+		if strings.Contains(e.Message, "SOURCE") && strings.Contains(e.Message, "URL") {
+			t.Errorf("unexpected SOURCE/URL pairing error for multi-source array-form: %s", e)
+		}
+	}
+}
+
+func TestSourceVFYArrayFormNoWarning(t *testing.T) {
+	content := `             MODULE=testmod
+            VERSION=1.0
+             SOURCE=$MODULE-$VERSION.tar.gz
+      SOURCE_URL[0]=http://example.com/
+      SOURCE_URL[1]=http://mirror.example.com/
+      SOURCE_VFY[0]=sha256:abc123
+           WEB_SITE=http://example.com
+            ENTERED=20200101
+            UPDATED=20200101
+              SHORT="A test module"
+
+cat << EOF
+Test.
+EOF
+`
+	path := writeTempDetails(t, content)
+	result := LintDetails(path, LintOptions{MaxLineLength: testMaxLineLength})
+
+	for _, w := range result.Warnings {
+		if strings.Contains(w.Message, "SOURCE_VFY") {
+			t.Errorf("unexpected VFY warning when array-form SOURCE_VFY is present: %s", w)
 		}
 	}
 }

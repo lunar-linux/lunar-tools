@@ -420,7 +420,7 @@ func checkDates(file string, lines []detailsLine) []LintError {
 			continue
 		}
 
-		if t.After(today) {
+		if t.After(today.AddDate(0, 0, 1)) {
 			errs = append(errs, LintError{
 				File:    file,
 				Line:    dl.lineNum,
@@ -727,21 +727,27 @@ func checkSourceURLPairing(file string, lines []detailsLine) ([]LintError, []Lin
 			continue
 		}
 
-		if m := sourceRe.FindStringSubmatch(dl.varName); m != nil {
+		// Strip array index (e.g., SOURCE_URL[0] → SOURCE_URL)
+		baseName := dl.varName
+		if idx := strings.Index(baseName, "["); idx >= 0 {
+			baseName = baseName[:idx]
+		}
+
+		if m := sourceRe.FindStringSubmatch(baseName); m != nil {
 			suffix := m[1]
 			if groups[suffix] == nil {
 				groups[suffix] = &sourceInfo{}
 			}
 			groups[suffix].hasSource = true
 			groups[suffix].sourceLine = dl.lineNum
-		} else if m := sourceURLRe.FindStringSubmatch(dl.varName); m != nil {
+		} else if m := sourceURLRe.FindStringSubmatch(baseName); m != nil {
 			suffix := m[1]
 			if groups[suffix] == nil {
 				groups[suffix] = &sourceInfo{}
 			}
 			groups[suffix].hasURL = true
 			groups[suffix].urlLine = dl.lineNum
-		} else if m := sourceVFYRe.FindStringSubmatch(dl.varName); m != nil {
+		} else if m := sourceVFYRe.FindStringSubmatch(baseName); m != nil {
 			suffix := m[1]
 			if groups[suffix] == nil {
 				groups[suffix] = &sourceInfo{}
