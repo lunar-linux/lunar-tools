@@ -21,6 +21,7 @@ var specialOptions = map[string]bool{
 	"LUNAR_RESTART_SERVICES": true,
 	"LDD_CHECK":              true,
 	"FUZZY":                  true,
+	"TMPFS":                  true,
 }
 
 // Required fields that must appear in every DETAILS file.
@@ -436,8 +437,8 @@ func checkDates(file string, lines []detailsLine) []LintError {
 	updated, hasUpdated := dates["UPDATED"]
 	if hasEntered && hasUpdated && updated.Before(entered) {
 		errs = append(errs, LintError{
-			File:    file,
-			Line:    lineNums["UPDATED"],
+			File: file,
+			Line: lineNums["UPDATED"],
 			Message: fmt.Sprintf("UPDATED (%s) is before ENTERED (%s)",
 				updated.Format("20060102"), entered.Format("20060102")),
 		})
@@ -879,4 +880,3 @@ func wrapParagraph(words []string, indent string, maxLen int) []string {
 
 	return result
 }
-
