@@ -626,16 +626,63 @@ func fixDetails(lines []detailsLine, maxLineLen int) string {
 		out.WriteByte('\n')
 	}
 
-	// Write heredoc with line wrapping
-	for _, dl := range heredocAndAfter {
-		if dl.kind == kindHeredocBody && maxLineLen > 0 && len(dl.raw) > maxLineLen {
-			wrapped := wrapLine(dl.raw, maxLineLen)
-			for _, wl := range wrapped {
-				out.WriteString(wl)
+	// Write heredoc with paragraph-aware line wrapping.
+	// Consecutive non-blank body lines sharing the same indent are treated as
+	// a single paragraph: joined, then re-wrapped together so words distribute
+	// evenly instead of creating orphan fragments.
+	idx := 0
+	for idx < len(heredocAndAfter) {
+		dl := heredocAndAfter[idx]
+
+		// Non-body lines (heredoc start, end) — pass through
+		if dl.kind != kindHeredocBody || maxLineLen <= 0 {
+			out.WriteString(dl.raw)
+			out.WriteByte('\n')
+			idx++
+			continue
+		}
+
+		// Blank heredoc body line — paragraph separator, pass through
+		if strings.TrimSpace(dl.raw) == "" {
+			out.WriteString(dl.raw)
+			out.WriteByte('\n')
+			idx++
+			continue
+		}
+
+		// Collect consecutive non-blank body lines with the same indent
+		indent := leadingWhitespace(dl.raw)
+		start := idx
+		needsWrap := false
+		var paraWords []string
+		for idx < len(heredocAndAfter) {
+			curr := heredocAndAfter[idx]
+			if curr.kind != kindHeredocBody || strings.TrimSpace(curr.raw) == "" {
+				break
+			}
+			if leadingWhitespace(curr.raw) != indent {
+				break
+			}
+			if len(curr.raw) > maxLineLen {
+				needsWrap = true
+			}
+			paraWords = append(paraWords, strings.Fields(curr.raw)...)
+			idx++
+		}
+
+		if !needsWrap {
+			// No line exceeded maxLen — output paragraph as-is
+			for j := start; j < idx; j++ {
+				out.WriteString(heredocAndAfter[j].raw)
 				out.WriteByte('\n')
 			}
-		} else {
-			out.WriteString(dl.raw)
+			continue
+		}
+
+		// Re-wrap the joined paragraph
+		wrapped := wrapParagraph(paraWords, indent, maxLineLen)
+		for _, wl := range wrapped {
+			out.WriteString(wl)
 			out.WriteByte('\n')
 		}
 	}
@@ -792,32 +839,44 @@ func checkSourceURLPairing(file string, lines []detailsLine) ([]LintError, []Lin
 	return errs, warns
 }
 
-// wrapLine wraps a line at word boundaries to fit within maxLen.
-func wrapLine(line string, maxLen int) []string {
-	if len(line) <= maxLen {
-		return []string{line}
+// leadingWhitespace returns the leading whitespace prefix of a string.
+func leadingWhitespace(s string) string {
+	trimmed := strings.TrimLeft(s, " \t")
+	return s[:len(s)-len(trimmed)]
+}
+
+// wrapParagraph wraps a list of words into lines that fit within maxLen,
+// prefixing each line with indent.
+func wrapParagraph(words []string, indent string, maxLen int) []string {
+	if len(words) == 0 {
+		return nil
+	}
+
+	available := maxLen - len(indent)
+	if available < 1 {
+		available = 1
 	}
 
 	var result []string
-	words := strings.Fields(line)
 	var current strings.Builder
 
 	for _, word := range words {
 		if current.Len() == 0 {
 			current.WriteString(word)
-		} else if current.Len()+1+len(word) <= maxLen {
+		} else if current.Len()+1+len(word) <= available {
 			current.WriteByte(' ')
 			current.WriteString(word)
 		} else {
-			result = append(result, current.String())
+			result = append(result, indent+current.String())
 			current.Reset()
 			current.WriteString(word)
 		}
 	}
 
 	if current.Len() > 0 {
-		result = append(result, current.String())
+		result = append(result, indent+current.String())
 	}
 
 	return result
 }
+

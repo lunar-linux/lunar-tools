@@ -323,6 +323,89 @@ EOF
 	}
 }
 
+func TestDetailsFixHeredocParagraphWrap(t *testing.T) {
+	// Simulates the minizip PR problem: multi-line paragraph with leading whitespace.
+	// Lines that form a paragraph should be joined and re-wrapped together,
+	// preserving leading whitespace and avoiding orphan fragments.
+	content := `MODULE=testmod
+VERSION=1.0
+SOURCE=$MODULE-$VERSION.tar.gz
+SOURCE_VFY=sha256:abc123
+WEB_SITE=http://example.com
+ENTERED=20200101
+UPDATED=20200101
+SHORT="A test module"
+
+cat << EOF
+This is the minizip from the contrib section of the zlib tarball. It only installs minizip
+and nothing else.
+
+ Note: This is the zlib from core. There are several apps such as Chromium with their
+ own bundled version. I am not aware of any core modules that can make use of this
+ so figured it would be better to separate the two.
+EOF
+`
+	path := writeTempDetails(t, content)
+	LintDetails(path, LintOptions{Fix: true, MaxLineLength: testMaxLineLength})
+
+	data, _ := os.ReadFile(path)
+	fixed := string(data)
+
+	for _, line := range strings.Split(fixed, "\n") {
+		if len(line) > testMaxLineLength && !strings.Contains(line, "=") && line != "EOF" && !strings.HasPrefix(line, "cat") {
+			t.Errorf("heredoc line still too long after fix: %d chars: %q", len(line), line)
+		}
+	}
+
+	// Leading whitespace on indented paragraph must be preserved
+	if !strings.Contains(fixed, "\n Note:") && !strings.Contains(fixed, "\n Note") {
+		t.Error("expected leading whitespace to be preserved on indented paragraph")
+	}
+
+	// Should NOT produce orphan lines (single short word on its own line)
+	for _, line := range strings.Split(fixed, "\n") {
+		trimmed := strings.TrimSpace(line)
+		if trimmed != "" && trimmed != "EOF" && !strings.HasPrefix(trimmed, "cat") && !strings.Contains(line, "=") {
+			words := strings.Fields(trimmed)
+			if len(words) == 1 && len(trimmed) < 20 {
+				t.Errorf("orphan word on its own line: %q", line)
+			}
+		}
+	}
+}
+
+func TestDetailsFixHeredocPreservesShortParagraphs(t *testing.T) {
+	// Paragraphs where no line exceeds maxLen should be left untouched
+	content := `MODULE=testmod
+VERSION=1.0
+SOURCE=$MODULE-$VERSION.tar.gz
+SOURCE_VFY=sha256:abc123
+WEB_SITE=http://example.com
+ENTERED=20200101
+UPDATED=20200101
+SHORT="A test module"
+
+cat << EOF
+Short first line.
+Short second line.
+
+Another paragraph here.
+EOF
+`
+	path := writeTempDetails(t, content)
+	LintDetails(path, LintOptions{Fix: true, MaxLineLength: testMaxLineLength})
+
+	data, _ := os.ReadFile(path)
+	fixed := string(data)
+
+	if !strings.Contains(fixed, "Short first line.\nShort second line.") {
+		t.Error("short paragraphs should be preserved as-is")
+	}
+	if !strings.Contains(fixed, "\nAnother paragraph here.\n") {
+		t.Error("separate short paragraph should be preserved as-is")
+	}
+}
+
 func TestDetailsSourceURLArrays(t *testing.T) {
 	content := `            MODULE=testmod
            VERSION=1.0
