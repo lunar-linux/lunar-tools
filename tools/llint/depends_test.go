@@ -142,6 +142,33 @@ func TestDependsCommandSubstitution(t *testing.T) {
 	}
 }
 
+func TestDependsCommandSubstitutionQuotedInDepends(t *testing.T) {
+	content := `depends "$(get_module python)"
+`
+	path := writeTempDepends(t, content)
+	result := LintDepends(path, LintOptions{})
+
+	if !result.HasErrors() {
+		t.Error("expected error for command substitution in depends even when quoted")
+	}
+}
+
+func TestDependsCommandSubstitutionInQuotedArgs(t *testing.T) {
+	content := `optional_depends libffi \
+                 "-DLLVM_ENABLE_FFI=ON -DFFI_INCLUDE_DIR=$(pkg-config --variable=includedir libffi)" \
+                 "-DLLVM_ENABLE_FFI=OFF" \
+                 "for high level programming support"
+`
+	path := writeTempDepends(t, content)
+	result := LintDepends(path, LintOptions{})
+
+	if result.HasErrors() {
+		for _, e := range result.Errors {
+			t.Errorf("unexpected error: %s", e)
+		}
+	}
+}
+
 func TestDependsCommentsIgnored(t *testing.T) {
 	content := `# This is a comment
 depends python

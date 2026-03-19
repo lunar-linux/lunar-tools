@@ -75,15 +75,31 @@ func LintDepends(filePath string, opts LintOptions) LintResult {
 			continue
 		}
 
-		if isAllowedCall(trimmed) {
-			// Even allowed calls must not contain command substitutions or backticks
-			if strings.Contains(trimmed, "$(") || strings.Contains(trimmed, "`") {
-				result.Errors = append(result.Errors, LintError{
-					File:    file,
-					Line:    ll.lineNum,
-					Message: "disallowed bash logic: command substitution in function call",
-					Fixable: false,
-				})
+		fn := matchedFunction(trimmed)
+		if fn != "" {
+			// depends and optional_depends_requires take plain module
+			// names — command substitutions are never valid there.
+			// optional_depends and optional_depends_one_of accept quoted
+			// flag arguments where $(…) is legitimate (e.g. pkg-config).
+			hasQuotedArgs := fn == "optional_depends" || fn == "optional_depends_one_of"
+			if hasQuotedArgs {
+				if hasUnquotedSubstitution(trimmed) {
+					result.Errors = append(result.Errors, LintError{
+						File:    file,
+						Line:    ll.lineNum,
+						Message: "disallowed bash logic: command substitution outside quoted string",
+						Fixable: false,
+					})
+				}
+			} else {
+				if strings.Contains(trimmed, "$(") || strings.Contains(trimmed, "`") {
+					result.Errors = append(result.Errors, LintError{
+						File:    file,
+						Line:    ll.lineNum,
+						Message: "disallowed bash logic: command substitution in function call",
+						Fixable: false,
+					})
+				}
 			}
 			continue
 		}
@@ -101,11 +117,34 @@ func LintDepends(filePath string, opts LintOptions) LintResult {
 	return result
 }
 
-// isAllowedCall checks if a line starts with one of the allowed function calls.
-func isAllowedCall(line string) bool {
+// matchedFunction returns the name of the allowed function call that the line
+// starts with, or "" if the line does not match any allowed function.
+func matchedFunction(line string) string {
 	for _, fn := range allowedFunctions {
 		if line == fn || strings.HasPrefix(line, fn+" ") || strings.HasPrefix(line, fn+"\t") {
-			return true
+			return fn
+		}
+	}
+	return ""
+}
+
+// hasUnquotedSubstitution reports whether line contains $( or ` outside of
+// double-quoted strings.  Single quotes are not tracked because DEPENDS
+// arguments use double quotes exclusively.
+func hasUnquotedSubstitution(line string) bool {
+	inQuote := false
+	for i := 0; i < len(line); i++ {
+		switch line[i] {
+		case '"':
+			inQuote = !inQuote
+		case '$':
+			if !inQuote && i+1 < len(line) && line[i+1] == '(' {
+				return true
+			}
+		case '`':
+			if !inQuote {
+				return true
+			}
 		}
 	}
 	return false
