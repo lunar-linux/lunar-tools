@@ -38,7 +38,7 @@ list_user_data() {
   GRD=$(echo $USTRING | cut -d: -f4)
   GPS=$(id -Gn $UNM | sed "s: :,:g")
   SHADOWSTR=$(getent shadow $UNM | cut -d: -f2)
-  if [ -z "$SHADOWNSTR" ] ; then
+  if [ -z "$SHADOWSTR" ] ; then
     PSW=""
   elif [ "$SHADOWSTR" == "x" -o "$SHADOWSTR" == "!" ] ; then
     PSW=$SHADOWSTR
@@ -261,7 +261,7 @@ edit_user_data() {
           OLDHOMEDIR=$(getent passwd $UNM | cut -d: -f6)
 	  GROUPNAME=$(getent group | grep "^$UNM:" | cut -d: -f3)
 	  exec_command "mv $OLDHOMEDIR $NEWHOMEDIR"
-          exec_comman d"usermod -d $NEWHOMEDIR $UNM"
+          exec_command "usermod -d $NEWHOMEDIR $UNM"
         elif [ $RETVAR == 1 ] ; then
           # only create the dir
  	  GROUPNAME=$(getent group | grep "^$UNM:" | cut -d: -f1)
