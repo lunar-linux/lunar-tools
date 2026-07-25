@@ -115,7 +115,7 @@ wifi_scan_menu() {
                      --menu \
                      $PROMPT \
                      0 0 0 \
-                     "${menu[@]}") || return
+                     "${menu[@]}") || return 1
 
     echo ${aps[$result]} ${ap_flags[$result]}
 }
@@ -134,7 +134,7 @@ wifi_get_password() {
 
 wifi_select_menu() {
     local device=$1
-    eval local ap_details=($(wifi_scan_menu $device))
+    eval local ap_details=($(wifi_scan_menu $device)) || return 1
     local ap_flags
     local ap_password
 
@@ -308,72 +308,155 @@ dev_manage_menu() {
     done
 }
 
-dev_config_menu() {
+# Manually specify IP address, netmask, gateway and DNS
+config_device_manual() {
     local device=$1
+    local changed=false
 
-    local choice
+    # set IP_Address, Netmask, Gateway, DNS1, DNS2
+    eval $(get_dev_config $device)
 
-    local config_file="$CONFIG_DIR/${device}.network"
-
-    eval "$(get_dev_config $device)"
-
-    # Before starting to worry about IP addresses and DHCP for a WiFi device,
-    # make sure you connect to an AP first.
+    local old_IP_Address old_Netmask old_Gateway old_DNS1 old_DNS2
 
     while true
     do
-        choice=$($DIALOG --title "Network configuration: $device" \
-                         --ok-label "Select" \
-                         --cancel-label "Back" \
-                         --menu "" 0 0 0 \
-                         $(
-                            if $WiFi_Device
-                            then
-                                echo "A"
-                                echo "Select WiFi AP"
-                            fi
-                         ) \
-                         D "DHCP enabled?    [$($DHCP_enabled && echo Y || echo N)]" \
-                         $(
-                            if ! $DHCP_enabled
-                            then
-                                echo "I"
-                                echo "IP Address     [$IP_Address]"
-                                echo "N"
-                                echo "Netmask        [$Netmask]"
-                                echo "G"
-                                echo "Gateway        [$Gateway]"
-                                echo "S"
-                                echo "Nameserver 1   [$DNS1]"
-                                echo "T"
-                                echo "Nameserver 2   [$DNS2]"
-                            fi
-                         )
-                ) || return
-        case "$choice" in
-            D)
-                if $DHCP_enabled
-                then
-                    DHCP_enabled=false
-                else
-                    DHCP_enabled=true
-                fi
+        choice=$($DIALOG --title "Manual network configuration: $device" \
+                         --ok-label "Edit"                               \
+                         --extra-button --extra-label "Back"             \
+                         --cancel-label "Save"                           \
+                         --menu "" 0 0 0                                 \
+                         "I" "IP Address     [$IP_Address]"              \
+                         "N" "Netmask        [$Netmask]"                 \
+                         "G" "Gateway        [$Gateway]"                 \
+                         "S" "Nameserver 1   [$DNS1]"                    \
+                         "T" "Nameserver 2   [$DNS2]")
+        case $? in
+            1)  # "Save" selected
+                break
             ;;
-            A)  wifi_select_menu $device                               ;;
-            I) IP_Address=$(inputbox "Enter IP address" "$IP_Address") ;;
-            N) Netmask=$(inputbox "Enter net mask" "$Netmask")         ;;
-            G) Gateway=$(inputbox "Enter gateway" "$Gateway")          ;;
-            S) DNS1=$(inputbox "Enter DNS server #1" "$DNS1")          ;;
-            T) DNS2=$(inputbox "Enter DNS server #2" "$DNS2")          ;;
+
+            3)  # "Back" selected--just go back to the config style
+                # selector
+                dev_config_menu $device
+                return
+            ;;
         esac
 
-        if $DHCP_enabled
-        then
-            set_dev_config $device dhcp
-        else
-            set_dev_config $device static $IP_Address $Netmask $Gateway "$DNS1" "$DNS2"
-        fi
+        case ${choice} in
+            I)
+                old_IP_Address=$IP_Address
+                IP_Address=$(inputbox "Enter IP address" "$IP_Address")
+                [[ $old_IP_Address != $IP_Address ]] && changed=true
+                # if someone enters a CIDR in their enthusiasm, just
+                # calculate the netmask from it
+                case "$IP_Address" in
+                    */*)
+                        Netmask=$(cidr2mask ${IP_Address#*/})
+                        IP_Address=${IP_Address%/*}
+                    ;;
+                esac
+            ;;
+
+            N)
+                old_Netmask=$Netmask
+                Netmask=$(inputbox "Enter net mask" "$Netmask")
+                [[ $old_Netmask != $Netmask ]] && changed=true
+            ;;
+
+            G)
+                old_Gateway=$Gateway
+                Gateway=$(inputbox "Enter gateway" "$Gateway")
+                [[ $old_Gateway != $Gateway ]] && changed=true
+            ;;
+
+            S)
+                old_DNS1=$DNS1
+                DNS1=$(inputbox "Enter DNS server #1" "$DNS1")
+                [[ $old_DNS1 != $DNS1 ]] && changed=true
+            ;;
+
+            T)
+                old_DNS2=$DNS2
+                DNS2=$(inputbox "Enter DNS server #2" "$DNS2")
+                [[ $old_DNS2 != $DNS2 ]] && changed=true
+            ;;
+        esac
     done
+
+    if $changed
+    then
+        $DIALOG --title "Manual network configuration: $device" \
+                --yes-label Confirm \
+                --no-label  Cancel \
+                --no-collapse \
+                --yesno "
+Confirm network configuration:
+
+IP Address:    $IP_Address
+Netmask:       $Netmask
+Gateway:       $Gateway
+Nameserver 1:  $DNS1
+Nameserver 2:  $DNS2" \
+               0 0
+
+        if [ $? -eq 0 ]
+        then
+            set_dev_config $device static $IP_Address $Netmask $Gateway "$DNS1" "$DNS2"
+        else
+            return 1
+        fi
+    fi
+}
+
+dev_config_menu() {
+    local device=$1
+    local config_file="$CONFIG_DIR/${device}.network"
+    local choice
+    local dialog_answer
+    local dhcp_on
+    local manual_on
+
+    # set Wifi_Device et al
+    eval "$(get_dev_config $device)"
+
+    if ${DHCP_enabled:-true}
+    then
+        dhcp_on=ON
+        manual_on=OFF
+    else
+        dhcp_on=OFF
+        manual_on=ON
+    fi
+
+    # Before starting to worry about IP addresses and DHCP for a WiFi device,
+    # make sure you connect to an AP first.
+    if $WiFi_Device
+    then
+        wifi_select_menu $device || return 1
+    fi
+
+    choice=$($DIALOG --title "Network configuration: $device"              \
+             --radiolist "Choose a network configuration style"            \
+                 0 0 0                                                     \
+                 DHCP 'Configure network automatically' ${dhcp_on}         \
+                 Manual                                                    \
+                    'Specify IP address, subnet, gateway and DNS settings' \
+                ${manual_on})
+
+    case "${choice}" in
+        DHCP)
+            set_dev_config $device dhcp
+        ;;
+
+        Manual)
+            config_device_manual $device || return 1
+        ;;
+
+        *) # if user hits cancel, don't configure device after all
+            return 1
+        ;;
+    esac
+    return 0
 }
 
 main_menu() {
@@ -398,23 +481,22 @@ main_menu() {
         then
             MANAGE="M\nManage network devices\n"
         fi
-		COMMAND=$($DIALOG  --title "Network configuration"  \
-						  --ok-label "Select"               \
-						  --cancel-label "Exit"             \
-						  --menu                            \
-						  ""                                \
-						  0 0 0                             \
-						  $(echo -en $LIST)                 \
-						  "A"  "Add a network device"       \
-						  "N"  "Setup host name"            \
-						  $(echo -en $MANAGE)) || return 0
-		case "$COMMAND" in
+        COMMAND=$($DIALOG  --title "Network configuration"  \
+                          --ok-label "Select"               \
+                          --cancel-label "Exit"             \
+                          --menu                            \
+                          ""                                \
+                          0 0 0                             \
+                          $(echo -en $LIST)                 \
+                          "A"  "Add a network device"       \
+                          "N"  "Setup host name"            \
+                          $(echo -en $MANAGE)) || return 0
+        case "$COMMAND" in
             [0-9]*) dev_edit_menu ${INTERFACES[$COMMAND]}      ;;
             A)      dev_add_menu                               ;;
             D)      dns_config_menu                            ;;
             N)      hostname_config_menu                       ;;
             M)      devices_manage_menu                       ;;
-		esac
+        esac
     done
 }
-
