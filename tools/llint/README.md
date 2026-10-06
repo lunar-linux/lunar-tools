@@ -41,7 +41,7 @@ Configuration is loaded from `/etc/lunar/config`, with `/etc/lunar/local/config`
 | `=` alignment            | Yes     | All variable assignments must have `=` at the same column                                |
 | Special option placement | Yes     | `PSAFE`, `GARBAGE`, etc. must be flush-left after the main variable block                |
 | Heredoc spacing          | Yes     | Exactly one blank line before `cat << EOF` and no extra blank lines after `EOF`          |
-| Heredoc line length      | Yes     | Lines in `cat << EOF` block must not exceed `--max-line-length`                          |
+| Heredoc line length      | Yes     | Lines in `cat << EOF` block must not exceed `--max-line-length`; lines with a URL are exempt and never re-wrapped |
 | Duplicate assignments    | Yes/No  | Exact duplicates are auto-removed; conflicting duplicates (different values) are errors   |
 | Required fields          | No      | `MODULE`, `VERSION`, `SOURCE`, `WEB_SITE`, `ENTERED`, `UPDATED`, `SHORT` must be present |
 | Date validation          | No      | `ENTERED`/`UPDATED` must be valid `yyyymmdd`, not in the future, `UPDATED` >= `ENTERED`  |

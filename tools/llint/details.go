@@ -537,7 +537,7 @@ func checkHeredocLength(file string, lines []detailsLine, maxLen int) []LintErro
 
 	var errs []LintError
 	for _, dl := range lines {
-		if dl.kind == kindHeredocBody && len(dl.raw) > maxLen {
+		if dl.kind == kindHeredocBody && len(dl.raw) > maxLen && !containsURL(dl.raw) {
 			errs = append(errs, LintError{
 				File:    file,
 				Line:    dl.lineNum,
@@ -630,7 +630,8 @@ func fixDetails(lines []detailsLine, maxLineLen int) string {
 	// Write heredoc with paragraph-aware line wrapping.
 	// Consecutive non-blank body lines sharing the same indent are treated as
 	// a single paragraph: joined, then re-wrapped together so words distribute
-	// evenly instead of creating orphan fragments.
+	// evenly instead of creating orphan fragments. Lines containing a URL are
+	// kept verbatim and act as paragraph boundaries.
 	idx := 0
 	for idx < len(heredocAndAfter) {
 		dl := heredocAndAfter[idx]
@@ -643,8 +644,9 @@ func fixDetails(lines []detailsLine, maxLineLen int) string {
 			continue
 		}
 
-		// Blank heredoc body line — paragraph separator, pass through
-		if strings.TrimSpace(dl.raw) == "" {
+		// Blank heredoc body line — paragraph separator, pass through.
+		// Lines containing a URL are also passed through untouched.
+		if strings.TrimSpace(dl.raw) == "" || containsURL(dl.raw) {
 			out.WriteString(dl.raw)
 			out.WriteByte('\n')
 			idx++
@@ -658,7 +660,7 @@ func fixDetails(lines []detailsLine, maxLineLen int) string {
 		var paraWords []string
 		for idx < len(heredocAndAfter) {
 			curr := heredocAndAfter[idx]
-			if curr.kind != kindHeredocBody || strings.TrimSpace(curr.raw) == "" {
+			if curr.kind != kindHeredocBody || strings.TrimSpace(curr.raw) == "" || containsURL(curr.raw) {
 				break
 			}
 			if leadingWhitespace(curr.raw) != indent {
@@ -844,6 +846,15 @@ func checkSourceURLPairing(file string, lines []detailsLine) ([]LintError, []Lin
 func leadingWhitespace(s string) string {
 	trimmed := strings.TrimLeft(s, " \t")
 	return s[:len(s)-len(trimmed)]
+}
+
+// urlRe matches a URL with a scheme, e.g. https://example.com/path.
+var urlRe = regexp.MustCompile(`[A-Za-z][A-Za-z0-9+.-]*://\S`)
+
+// containsURL reports whether a heredoc line contains a URL. Such lines are
+// exempt from length checks and never re-wrapped, so URLs stay intact.
+func containsURL(s string) bool {
+	return urlRe.MatchString(s)
 }
 
 // wrapParagraph wraps a list of words into lines that fit within maxLen,

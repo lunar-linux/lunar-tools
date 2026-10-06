@@ -1430,3 +1430,73 @@ EOF
 		}
 	}
 }
+
+func TestDetailsHeredocLongURLNotReported(t *testing.T) {
+	content := `MODULE=testmod
+VERSION=1.0
+SOURCE=$MODULE-$VERSION.tar.gz
+SOURCE_VFY=sha256:abc123
+WEB_SITE=http://example.com
+ENTERED=20200101
+UPDATED=20200101
+SHORT="A test module"
+
+cat << EOF
+See: https://developer.mozilla.org/en-US/docs/Mozilla/Developer_guide/Mozilla_build_FAQ
+EOF
+`
+	path := writeTempDetails(t, content)
+	result := LintDetails(path, LintOptions{MaxLineLength: testMaxLineLength})
+
+	for _, e := range result.Errors {
+		if strings.Contains(e.Message, "exceeds") {
+			t.Errorf("unexpected length error for URL line: %s", e)
+		}
+	}
+}
+
+func TestDetailsFixHeredocPreservesURLLines(t *testing.T) {
+	// Based on moonbase-other devel/autoconf-mozilla: the URL line must be kept
+	// intact while surrounding paragraphs are still re-wrapped.
+	urlLine := "See: https://developer.mozilla.org/en-US/docs/Mozilla/Developer_guide/Mozilla_build_FAQ"
+	content := `MODULE=testmod
+VERSION=1.0
+SOURCE=$MODULE-$VERSION.tar.gz
+SOURCE_VFY=sha256:abc123
+WEB_SITE=http://example.com
+ENTERED=20200101
+UPDATED=20200101
+SHORT="A test module"
+
+cat << EOF
+NOTE: This module is strickly for those apps that are hardcoded for
+the version of this module. For now firefox-47.0 is the only mozilla app that
+has a problem with autoconf-2.69. The real issue is the lack of interest/motivation
+by the moz dev folks to use more current versions ot autoconf.
+` + urlLine + `
+This "problem" will most likely show up as newer versions of other moz apps are released.
+EOF
+`
+	path := writeTempDetails(t, content)
+	result := LintDetails(path, LintOptions{Fix: true, MaxLineLength: testMaxLineLength})
+
+	data, _ := os.ReadFile(path)
+	fixed := string(data)
+
+	if !strings.Contains(fixed, "\n"+urlLine+"\n") {
+		t.Errorf("expected URL line to be preserved verbatim, got:\n%s", fixed)
+	}
+	for _, line := range strings.Split(fixed, "\n") {
+		if line == urlLine {
+			continue
+		}
+		if len(line) > testMaxLineLength && !strings.Contains(line, "=") {
+			t.Errorf("heredoc line still too long after fix: %d chars: %q", len(line), line)
+		}
+	}
+	for _, e := range result.Errors {
+		if strings.Contains(e.Message, "exceeds") {
+			t.Errorf("unexpected remaining length error: %s", e)
+		}
+	}
+}
