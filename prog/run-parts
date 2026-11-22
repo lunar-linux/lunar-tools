@@ -5,7 +5,7 @@
 set +e
 
 if [ $# -lt 1 ]; then
-  echo "Usage: run-parts [--list | --test | --cron | -a <val> ... | --arg=<val> ... ] <dir>"
+  echo "Usage: run-parts [--list | --test | --cron | -v | -a <val> ... | --arg=<val> ... ] <dir>"
   exit 1
 fi
 
@@ -22,19 +22,21 @@ while [ $# -gt 1 ]; do
     --list)
       list=1
       shift
-      break
       ;;
     --test)
       test=1
       shift
-      break
       ;;
     --cron)
       cron=1
       shift
-      break
+      ;;
+    --verbose|-v)
+      verbose=1
+      shift
       ;;
     --)
+      shift
       break
       ;;
     *)
@@ -61,7 +63,11 @@ for i in $(LC_ALL=C; echo ${1%/}/*[^~,]) ; do
         echo $i
         continue
       fi
-      
+
+      if [ ${verbose:-0} = 1 ]; then
+        echo "run-parts: executing $i" >&2
+      fi
+
       if [ ${cron:-0} = 1 ]; then
         logger -i -p cron.notice -t "run-parts($1)" "starting $(basename $i)"
         $i 2>&1 | awk -v "progname=$i" \
