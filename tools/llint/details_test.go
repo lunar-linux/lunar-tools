@@ -1500,3 +1500,70 @@ EOF
 		}
 	}
 }
+
+func TestDetailsProfileNoSourceRequired(t *testing.T) {
+	for _, val := range []string{"yes", `"yes"`, "'yes'"} {
+		content := `          MODULE=testmod
+         VERSION=X11R7.x
+        WEB_SITE=http://www.x.org/
+         ENTERED=20060120
+         UPDATED=20180211
+           SHORT="A profile"
+         PROFILE=` + val + `
+
+cat << EOF
+A profile.
+EOF
+`
+		path := writeTempDetails(t, content)
+		result := LintDetails(path, LintOptions{MaxLineLength: testMaxLineLength})
+		if result.HasErrors() || len(result.Warnings) > 0 {
+			t.Errorf("PROFILE=%s: unexpected issues: errors=%v warnings=%v", val, result.Errors, result.Warnings)
+		}
+	}
+}
+
+func TestDetailsProfileStillRequiresOtherFields(t *testing.T) {
+	content := `MODULE=testmod
+PROFILE=yes
+cat << EOF
+Test.
+EOF
+`
+	path := writeTempDetails(t, content)
+	result := LintDetails(path, LintOptions{MaxLineLength: testMaxLineLength})
+
+	missing := map[string]bool{"VERSION": false, "WEB_SITE": false, "ENTERED": false, "UPDATED": false, "SHORT": false}
+	for _, e := range result.Errors {
+		if e.Message == "missing required field: SOURCE" {
+			t.Error("SOURCE should not be required for profiles")
+		}
+		for field := range missing {
+			if strings.Contains(e.Message, field) {
+				missing[field] = true
+			}
+		}
+	}
+	for field, found := range missing {
+		if !found {
+			t.Errorf("expected missing field error for %s", field)
+		}
+	}
+}
+
+func TestDetailsProfileNoStillRequiresSource(t *testing.T) {
+	content := `MODULE=testmod
+PROFILE=no
+cat << EOF
+Test.
+EOF
+`
+	path := writeTempDetails(t, content)
+	result := LintDetails(path, LintOptions{MaxLineLength: testMaxLineLength})
+	for _, e := range result.Errors {
+		if e.Message == "missing required field: SOURCE" {
+			return
+		}
+	}
+	t.Error("expected missing SOURCE error when PROFILE is not yes")
+}

@@ -205,17 +205,30 @@ func baseFileName(path string) string {
 	return path
 }
 
+// profileExemptFields lists required fields that profile modules (PROFILE=yes)
+// may omit, since a profile only groups other modules and has no sources.
+var profileExemptFields = map[string]bool{
+	"SOURCE": true,
+}
+
 // checkRequiredFields reports missing required fields.
 func checkRequiredFields(file string, lines []detailsLine) []LintError {
 	found := make(map[string]bool)
+	isProfile := false
 	for _, dl := range lines {
 		if dl.kind == kindAssignment {
 			found[dl.varName] = true
+			if dl.varName == "PROFILE" && strings.Trim(dl.varValue, `"'`) == "yes" {
+				isProfile = true
+			}
 		}
 	}
 
 	var errs []LintError
 	for _, field := range requiredFields {
+		if isProfile && profileExemptFields[field] {
+			continue
+		}
 		if !found[field] {
 			errs = append(errs, LintError{
 				File: file, Line: 1, Message: fmt.Sprintf("missing required field: %s", field),
