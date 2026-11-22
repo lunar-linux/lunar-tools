@@ -49,6 +49,42 @@ install: .PHONY
 		install -m644 $${DOC} $(DESTDIR)/usr/share/doc/lunar-tools/ ; \
 	done
 
+# Bump VERSION to <year>.<n+1> (or <year>.1 in a new year), commit it, tag it
+# and push master plus the tag. The pushed tag triggers the release workflow.
+bump-version: .PHONY
+	@set -e ; \
+	branch=$$(git rev-parse --abbrev-ref HEAD) ; \
+	if [ "$$branch" != "master" ]; then \
+	    echo "bump-version: must be on master (currently on $$branch)" >&2 ; exit 1 ; \
+	fi ; \
+	if [ -n "$$(git status --porcelain)" ]; then \
+	    echo "bump-version: working tree is not clean" >&2 ; exit 1 ; \
+	fi ; \
+	git fetch -q --tags origin master ; \
+	if ! git merge-base --is-ancestor origin/master HEAD; then \
+	    echo "bump-version: master is behind origin/master, pull first" >&2 ; exit 1 ; \
+	fi ; \
+	cur=$$(sed -n 's/^VERSION = //p' Makefile) ; \
+	if ! echo "$$cur" | grep -Eq '^[0-9]{4}\.[0-9]+$$'; then \
+	    echo "bump-version: cannot parse current VERSION '$$cur'" >&2 ; exit 1 ; \
+	fi ; \
+	year=$$(date +%Y) ; \
+	if [ "$${cur%%.*}" = "$$year" ]; then \
+	    new="$$year.$$(( $${cur#*.} + 1 ))" ; \
+	else \
+	    new="$$year.1" ; \
+	fi ; \
+	if git rev-parse -q --verify "refs/tags/$$new" >/dev/null; then \
+	    echo "bump-version: tag $$new already exists" >&2 ; exit 1 ; \
+	fi ; \
+	echo "Bumping version $$cur -> $$new" ; \
+	sed "s/^VERSION = .*/VERSION = $$new/" Makefile > Makefile.tmp ; \
+	mv Makefile.tmp Makefile ; \
+	git commit -q -m "chore: bump to version $$new" Makefile ; \
+	git tag "$$new" ; \
+	git push --atomic origin master "refs/tags/$$new" ; \
+	echo "Pushed master and tag $$new"
+
 dist:
 	git archive --format=tar --prefix=lunar-tools-$(VERSION)/ lunar-tools-$(VERSION) | bzip2 > lunar-tools-$(VERSION).tar.bz2
 

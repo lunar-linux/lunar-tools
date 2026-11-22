@@ -55,6 +55,29 @@ make install-all DESTDIR=/tmp/pkg  # install to staging directory
 
 Releases are built automatically by GitHub Actions when a version tag is pushed. Tags follow the `<year>.<counter>` format (e.g., `2025.1`, `2025.2`).
 
+### Making a release
+
+From an up-to-date `master` with a clean working tree:
+
+```bash
+git checkout master && git pull
+make bump-version
+```
+
+`make bump-version` does the whole release in one step:
+
+1. Checks that you are on `master`, the working tree is clean, `master` is not behind `origin/master`, and the new tag does not already exist. It stops without changing anything if a check fails.
+2. Increments `VERSION` in the Makefile: `2026.11` becomes `2026.12`. The first release in a new year resets the counter, so `2026.12` becomes `2027.1`.
+3. Commits the change as `chore: bump to version <version>`.
+4. Creates the tag `<version>`.
+5. Pushes `master` and the tag to `origin` together, so the tag is never pushed without its commit.
+
+Pushing the tag starts the release workflow. Follow its progress on the repository's Actions tab.
+
+Any unpushed commits on `master` are pushed along with the version bump, so make sure `master` contains only what you want to release.
+
+### What the workflow builds
+
 The workflow runs Go tests, cross-compiles for amd64 and i686, and creates a GitHub release with two architecture-specific tarballs:
 
 - `lunar-tools-<version>-amd64.tar.xz`
